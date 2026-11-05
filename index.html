@@ -311,6 +311,12 @@ table{border-collapse:collapse;width:100%}
 .proj button:hover:not(:disabled),.tp:hover{border-color:#8896aa}
 .meter{background:#10151d}.bar,.ptm{background:#10151d}
 .sec>h2{margin-top:4px}
+.off-steps{display:flex;gap:6px;flex-wrap:wrap}.off-steps span{font-size:12px;padding:4px 10px;background:var(--panel);border:1px solid var(--line);color:var(--mute)}
+.off-steps span.on{background:var(--team);color:var(--team-ink);border-color:var(--team);font-weight:700}
+.stat b em{font-style:normal;font-size:11px;margin-left:3px;font-family:var(--body);font-weight:700}.stat b em.up{color:var(--green)}.stat b em.dn{color:#ff8a92}
+.rule-card{display:grid;gap:4px;padding:14px;background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--flag)}.rule-card strong{font-size:20px}
+.title-card{border-top-color:var(--flag);text-align:center}.title-card h2{font:400 clamp(30px,8vw,44px)/1.1 'Black Han Sans','IBM Plex Sans KR',sans-serif;font-weight:800;font-synthesis:none;color:var(--flag)}.title-card .pop-btns{justify-content:center}
+.career{grid-template-columns:repeat(3,minmax(0,1fr))}
 .pop-wrap{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px;background:rgba(5,7,11,.72)}
 .pop-card{width:min(100%,440px);display:grid;gap:12px;padding:18px;background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--team);box-shadow:0 14px 40px rgba(0,0,0,.55);animation:pop .22s ease-out}
 .pop-card h2{font:800 22px/1.2 var(--body);text-wrap:balance}
@@ -527,7 +533,7 @@ function newGame(team,picks){
       return {id:'a'+i+'_'+k,n,code,pace:Math.round(top),tyre:irand(66,90),wet:irand(62,92),mental:irand(64,92)}});
     return {...t,id:'t'+i,drivers:drv};
   });
-  return {team,drivers:picks.map(p=>({...p,morale:75,pts:0,best:99})),
+  return {team,drivers:picks.map(p=>({...p,morale:75,pts:0,best:99,contract:2})),
     car:{engine:63,aero:61,chassis:65,dur:62},devCount:{engine:0,aero:0,chassis:0,dur:0},
     budget:30+(100-spent),round:0,ai,pts:{me:0},dpts:{},projects:[],fac:{wind:0,bench:0,sim:0,shop:0,crew:0},tech:{},look:{pattern:'stripe',wing:'',wheel:'',helmet:''},results:[],miles:{},news:[`창단 완료. 남은 영입비 ${100-spent}억이 개발비로 넘어왔습니다.`]};
 }
@@ -542,10 +548,11 @@ function preparePre(T){
   G.drivers.forEach(d=>entries.push({d,team:{n:G.team.name,c:G.team.c1,id:'me',chassis:G.car.chassis,dur:G.car.dur},perf:perfOf(G.car,T)+techB,mine:true}));
   entries.forEach(e=>e.q=(92-e.perf)*.05+(90-e.d.pace)*.03+rand(-.28,.28)-(e.mine?G.fac.sim*.06:0));
   entries.sort((a,b)=>a.q-b.q);
-  const rainy=Math.random()<T.rain;
+  const rp=clamp(T.rain*((G.rainMod||[])[TRACKS.indexOf(T)]||1)*((G.rule&&G.rule.rain)||1),.02,.8);
+  const rainy=Math.random()<rp;
   const plan=rainy?{start:irand(3,T.laps-5),dur:irand(3,10),target:rand(.5,.95)}:null;
-  const fc=clamp(Math.round((rainy?Math.max(T.rain,.35):T.rain*.8)*100+rand(-10,12)),0,90);
-  P={T,grid:entries,plan,forecast:fc,falseRain:!rainy&&Math.random()<T.rain*.5?irand(4,T.laps-5):0,tyres:['M','M']};
+  const fc=clamp(Math.round((rainy?Math.max(rp,.35):rp*.8)*100+rand(-10,12)),0,90);
+  P={T,grid:entries,plan,forecast:fc,falseRain:!rainy&&Math.random()<rp*.5?irand(4,T.laps-5):0,rainP:rp,tyres:['M','M']};
 }
 function makeRace(P,auto){
   const T=P.T;buildTrack(T);
@@ -556,7 +563,7 @@ function makeRace(P,auto){
     else{const r=Math.random();c.tyre=r<.25?'S':r<.75?'M':'H'}
     c.used.add(c.tyre);
   });
-  return {track:T,cars,mine:cars.filter(c=>c.mine),laps:T.laps,t:0,wet:0,wetT:0,sc:null,scCount:0,leaderLap:0,chequered:false,finished:false,fast:null,plan:P.plan,falseRain:P.falseRain,auto,fc:P.forecast,rainWas:false,autoPilot:false,msg:null,slowUntil:0,scale:7,wetCalled:false,dryCalled:false,scripted:Math.random()<.5?irand(4,T.laps-5):0,orderCd:0,ordAsk:0,rainNow:false,log:[]};
+  return {track:T,cars,mine:cars.filter(c=>c.mine),laps:T.laps,t:0,wet:0,wetT:0,sc:null,scCount:0,leaderLap:0,chequered:false,finished:false,fast:null,plan:P.plan,falseRain:P.falseRain,auto,fc:P.forecast,rainP:P.rainP,rainWas:false,autoPilot:false,msg:null,slowUntil:0,scale:7,wetCalled:false,dryCalled:false,scripted:Math.random()<.5?irand(4,T.laps-5):0,orderCd:0,ordAsk:0,rainNow:false,log:[]};
 }
 function radio(R,text,urgent){R.msg={text,urgent:!!urgent,at:performance.now()};if(urgent&&!R.auto&&!R.autoPilot)R.slowUntil=performance.now()+8000}
 function calcLap(c,R){
@@ -598,7 +605,7 @@ function aiDecide(c,R){
 function startPit(c,R){
   const T=R.track,cl=c.mine?G.fac.crew:0,crew=Math.random()<(c.mine?.1-.025*cl:.06)?rand(3,6):0,stop=rand(2.2,3)+crew+(c.mine?.4-.2*cl:0);
   const newT=c.pitReq;c.pitReq=null;
-  const D=PF*T.base+T.pit+stop;
+  const D=PF*T.base+T.pit+((G.rule&&G.rule.pit)||0)+stop;
   c.pit={left:D,D,rate:PF/D,tyre:newT,stop,crew};c.lastStop=stop;
   c.pits++;
 }
@@ -625,10 +632,10 @@ function doIncident(c,R){
 function updateForecast(R){
   const L=R.leaderLap,pl=R.plan,T=R.track,rem=R.laps-L;let target;
   if(R.rainNow&&pl){const left=pl.start+pl.dur-L,beyond=pl.start+pl.dur>=R.laps;target=beyond?rand(8,20):left>4?rand(15,25):left>2?rand(35,50):rand(60,80)}
-  else if(pl&&L<pl.start){const n=pl.start-L;target=n>8?T.rain*100+rand(-5,10):n>4?rand(30,45):n>2?rand(45,60):rand(65,85)}
-  else if(R.falseRain&&L<R.falseRain){const n=R.falseRain-L;target=n>4?T.rain*100+rand(-5,10):n>2?rand(25,40):rand(35,55)}
+  else if(pl&&L<pl.start){const n=pl.start-L;target=n>8?(R.rainP||T.rain)*100+rand(-5,10):n>4?rand(30,45):n>2?rand(45,60):rand(65,85)}
+  else if(R.falseRain&&L<R.falseRain){const n=R.falseRain-L;target=n>4?(R.rainP||T.rain)*100+rand(-5,10):n>2?rand(25,40):rand(35,55)}
   else if(pl||(R.falseRain&&L>=R.falseRain))target=rand(3,10);
-  else target=rem<3?rand(0,4):Math.min(25,T.rain*60+rand(-4,6));
+  else target=rem<3?rand(0,4):Math.min(25,(R.rainP||T.rain)*60+rand(-4,6));
   const was=R.rainWas!==!!R.rainNow;R.rainWas=!!R.rainNow;
   R.fc=clamp(Math.round((was?target:R.fc+(target-R.fc)*.65)/5)*5,0,95);
 }
@@ -721,7 +728,7 @@ function step(R,dt){
     c.speed=speed;c.dist+=speed*dt;
     // 타이어
     const chassis=c.mine?G.car.chassis:c.team.chassis;
-    let rate=TYRES[c.tyre].w*T.wear*MODE[c.mode].w*(1.15-c.d.tyre/100*.3)*(1-(chassis-75)*.003);
+    let rate=TYRES[c.tyre].w*T.wear*((G.rule&&G.rule.wear)||1)*MODE[c.mode].w*(1.15-c.d.tyre/100*.3)*(1-(chassis-75)*.003);
     if(c.tyre==='W'&&R.wet<.3)rate+=7;
     if(c.mine&&G.tech.wear)rate*=.93;
     if(R.sc)rate*=.3;
@@ -1314,10 +1321,10 @@ let HT='race';
 const HUB_TABS=[['race','경기'],['garage','차고'],['driver','드라이버'],['rank','순위']];
 function renderHub(){
   setTeamVars(G.team.c1,G.team.c2);
-  if(G.round>=TRACKS.length)return renderEnd();
+  if(G.round>=TRACKS.length||G.off)return renderEnd();
   closePreview();HT='race';
   $('#app').innerHTML=`<div class="hub">
-    <header class="hub-bar"><div class="hub-who"><span class="lab">팀 본부 · 시즌 1 · 라운드 ${G.round+1}/${TRACKS.length}</span><strong id="hubName">${esc(G.team.name)}</strong></div>
+    <header class="hub-bar"><div class="hub-who"><span class="lab">시즌 ${G.season} · 라운드 ${G.round+1}/${TRACKS.length}</span><strong id="hubName">${esc(G.team.name)}</strong></div>
       <div class="money"><span class="lab">개발비</span><br><b id="gMoney" data-count="${G.budget}" data-suf="억">${G.budget}억</b></div>
       <button class="menu-btn" id="menuBtn">메뉴</button></header>
     <nav class="hub-tabs" role="tablist">${HUB_TABS.map(([k,n])=>`<button role="tab" data-ht="${k}" aria-selected="${HT===k}"><span>${n}</span>${k==='garage'&&G.dot&&G.dot.garage?'<i class="dot" aria-label="새 소식"></i>':''}</button>`).join('')}</nav>
@@ -1332,16 +1339,18 @@ function drawHubTab(){
   const body=$('#hubBody');body.scrollTop=0;
   const rankRow=(i,c,name,pts,me)=>`<tr class="${me?'me':''}"><td style="width:26px" class="num">${i+1}</td><td><i class="tick" style="background:${c};margin-right:7px;vertical-align:-2px"></i>${esc(name)}</td><td class="r">${pts}</td></tr>`;
   if(HT==='race'){
-    const T=TRACKS[G.round],goal=nextGoal(),st=standings(),rk=st.findIndex(t=>t.id==='me')+1,best=G.results.length?Math.min(...G.results.map(r=>r.best)):99;
+    const T=curTrack(),goal=nextGoal(),st=standings(),rk=st.findIndex(t=>t.id==='me')+1,best=G.results.length?Math.min(...G.results.map(r=>r.best)):99;
     body.innerHTML=`<div class="wrap tabfade">
-      <div class="cal" aria-label="시즌 일정">${TRACKS.map((t,i)=>{const r=G.results[i];const cl=r?(r.pts>0?'done pts':'done'):i===G.round?'now':'';return `<div class="${cl}" title="${esc(t.name)}">${r?(r.best>20?'R':r.best):i+1}</div>`}).join('')}</div>
+      <div class="cal" aria-label="시즌 일정">${G.calendar.map((ci,i)=>{const t=TRACKS[ci],r=G.results[i];const cl=r?(r.pts>0?'done pts':'done'):i===G.round?'now':'';return `<div class="${cl}" title="${esc(t.name)}">${r?(r.best>20?'R':r.best):i+1}</div>`}).join('')}</div>
       ${G.news.length?`<div class="news" aria-live="polite">${G.news.map(n=>`<span class="${n.startsWith('✓')?'good':n.startsWith('✕')?'bad':''}">${esc(n)}</span>`).join('')}</div>`:''}
       <section class="sec"><h2>다음 경기</h2>
         <div class="next">${trackSVG(T,G.team.c1)}<div><h3>${esc(T.name)}</h3>
           <div class="chips"><span class="chip">${T.kind}</span><span class="chip">${T.laps}랩</span><span class="chip">피트 손실 약 ${T.pit+2.5|0}초</span></div>
           <button class="btn pri" id="goPre">경기 준비</button></div></div></section>
       <div class="sumrow hub-sum"><div><span class="lab">팀 순위</span><b>${G.results.length?rk+'위':'-'}</b></div><div><span class="lab">팀 포인트</span><b>${G.pts.me||0}</b></div><div><span class="lab">최고 순위</span><b>${best>20?'-':'P'+best}</b></div></div>
-      ${goal?`<p class="note">다음 목표: <b style="color:var(--fg)">${goal.n}</b> · 달성 시 스폰서 보너스 ${goal.bonus}억</p>`:'<p class="note">이번 시즌 목표를 모두 달성했습니다.</p>'}
+      ${G.target?`<p class="note">시즌 목표: <b style="color:var(--fg)">팀 순위 ${G.target}위 이내</b> · 달성 시 보너스 20억</p>`:''}
+      ${goal?`<p class="note">다음 도전: <b style="color:var(--fg)">${goal.n}</b> · 달성 시 스폰서 보너스 ${goal.bonus}억</p>`:''}
+      ${G.rule?`<p class="note">올해 규정: <b style="color:var(--fg)">${esc(G.rule.n)}</b> · ${esc(G.rule.d)}</p>`:''}
     </div>`;
   }else if(HT==='garage'){
     body.innerHTML=`<div class="tabfade"><div class="g-stage" id="gStage"><canvas id="gCar" aria-label="내 차 3D 미리보기. 좌우로 끌어서 돌려 봅니다."></canvas><div id="gFallback"></div></div>
@@ -1355,14 +1364,17 @@ function drawHubTab(){
   }else if(HT==='driver'){
     const list=driverStandings(),dc=(l,v)=>`<span class="stat"><span>${l}</span><b>${v}</b></span>`;
     body.innerHTML=`<div class="wrap tabfade">
-      <section class="sec"><h2>내 드라이버</h2><div class="drv-grid">${G.drivers.map(d=>{const m=Math.round(d.morale);return `<div class="drv dcard"><div class="drv-top"><strong>${esc(d.n)}</strong><span class="num">${G.dpts[d.id]||0}점</span></div><span class="note">${d.age}세 · ${d.tag} · 드라이버 순위 ${list.findIndex(x=>x.id===d.id)+1}위</span>
+      <section class="sec"><h2>내 드라이버</h2><div class="drv-grid">${G.drivers.map(d=>{const m=Math.round(d.morale);return `<div class="drv dcard"><div class="drv-top"><strong>${esc(d.n)}</strong><span class="num">${G.dpts[d.id]||0}점</span></div><span class="note">${d.age}세 · ${driverTag(d)} · 드라이버 순위 ${list.findIndex(x=>x.id===d.id)+1}위 · 계약 ${d.contract}시즌 남음</span>
         <span class="stats">${dc('속도',d.pace)}${dc('타이어',d.tyre)}${dc('빗길',d.wet)}${dc('멘탈',d.mental)}</span>
         <div class="morale"><span>사기</span><div class="meter"><i style="width:${m}%;background:${m<60?'var(--danger)':'var(--team)'}"></i></div><b>${m}</b></div></div>`}).join('')}</div></section>
+      <p class="note">영입과 재계약은 시즌이 끝난 뒤 드라이버 시장에서 합니다.</p>
       <section class="sec"><h2>드라이버 순위</h2><div class="tblw"><table class="tbl">${list.map((d,i)=>rankRow(i,d.c,d.n,d.pts,d.me)).join('')}</table></div></section></div>`;
   }else{
     body.innerHTML=`<div class="wrap tabfade">
       <section class="sec"><h2>팀 순위</h2><div class="tblw"><table class="tbl">${standings().map((t,i)=>rankRow(i,t.c,t.n,t.pts,t.id==='me')).join('')}</table></div></section>
-      <section class="sec"><h2>내 팀 경기 기록</h2>${G.results.length?`<div class="tblw"><table class="tbl">${G.results.map((r,i)=>`<tr><td class="num" style="width:26px">${i+1}</td><td>${esc(r.track)}</td><td class="num">${r.best>20?'리타이어':'P'+r.best}</td><td class="r">${r.pts}</td></tr>`).join('')}</table></div>`:'<p class="note">첫 경기를 마치면 기록이 쌓입니다.</p>'}</section></div>`;
+      <section class="sec"><h2>내 팀 경기 기록</h2>${G.results.length?`<div class="tblw"><table class="tbl">${G.results.map((r,i)=>`<tr><td class="num" style="width:26px">${i+1}</td><td>${esc(r.track)}</td><td class="num">${r.best>20?'리타이어':'P'+r.best}</td><td class="r">${r.pts}</td></tr>`).join('')}</table></div>`:'<p class="note">첫 경기를 마치면 기록이 쌓입니다.</p>'}</section>
+      <section class="sec"><h2>통산 기록</h2><div class="sumrow career"><div><span class="lab">팀 챔피언</span><b>${G.career.titles}</b></div><div><span class="lab">드라이버 챔피언</span><b>${G.career.drvTitles}</b></div><div><span class="lab">우승</span><b>${G.career.wins}</b></div><div><span class="lab">포디움</span><b>${G.career.podiums}</b></div><div><span class="lab">통산 포인트</span><b>${G.career.points}</b></div><div><span class="lab">경기 수</span><b>${G.career.races}</b></div></div></section>
+      <section class="sec"><h2>역대 시즌</h2>${G.history.length?`<div class="tblw"><table class="tbl"><tr><th>시즌</th><th>순위</th><th>포인트</th><th>챔피언</th></tr>${[...G.history].reverse().map(h=>`<tr class="${h.rank===1?'me':''}"><td class="num">${h.season}</td><td class="num">${h.rank}위</td><td class="num">${h.pts}</td><td>${esc(h.champ)}</td></tr>`).join('')}</table></div>`:'<p class="note">시즌을 마치면 기록이 남습니다.</p>'}</section></div>`;
   }
 }
 function hubClick(e){
@@ -1371,7 +1383,7 @@ function hubClick(e){
   if(b.id==='menuBtn'){HT='menu';drawHubTab();return}
   if(b.id==='menuFx'){RM=!RM;document.documentElement.classList.toggle('no-motion',RM);try{localStorage.setItem('pitwall-motion',RM?'0':'1')}catch(x){}b.textContent='효과 '+(RM?'끔':'켬');b.setAttribute('aria-pressed',!RM);return}
   if(b.id==='menuSnd'){SND.toggle();b.textContent='소리 '+(SND.on?'켬':'끔');b.setAttribute('aria-pressed',SND.on);return}
-  if(b.id==='goPre'){G.news=[];save();preparePre(TRACKS[G.round]);go(renderPre);return}
+  if(b.id==='goPre'){G.news=[];save();preparePre(curTrack());go(renderPre);return}
   if(b.id==='askReset'){$('#resetBox').innerHTML='<span>지금까지의 시즌이 지워집니다.</span><button class="btn" id="doReset">지우기</button><button class="btn" id="noReset">취소</button>';return}
   if(b.id==='noReset'){$('#resetBox').innerHTML='<button class="btn" id="askReset">처음부터 다시 시작</button>';return}
   if(b.id==='doReset'){closePreview();wipe();G=null;go(startCreate);return}
@@ -1409,6 +1421,10 @@ function recolorAI(g){
 function ensureG(g){
   if(!g)return g;
   recolorAI(g);
+  g.season=g.season||1;g.history=g.history||[];g.career=Object.assign({wins:0,podiums:0,points:0,titles:0,drvTitles:0,races:0},g.career||{});
+  g.calendar=g.calendar||TRACKS.map((_,i)=>i);g.rainMod=g.rainMod||TRACKS.map(()=>1);
+  g.drivers.forEach(d=>{if(d.contract==null)d.contract=2;if(d.morale==null)d.morale=75});
+  g.ai.forEach(t=>t.drivers.forEach(d=>{if(d.age==null)d.age=irand(22,34);if(d.contract==null)d.contract=irand(1,3)}));
   g.fac=Object.assign({wind:0,bench:0,sim:0,shop:0,crew:0},g.fac||{});
   g.tech=g.tech||{};
   g.look=Object.assign({pattern:'stripe',wing:'',wheel:'',helmet:''},g.look||{});
@@ -1418,7 +1434,8 @@ const maxSlots=()=>2+(G.fac.shop>=3?1:0);
 function projInfo(part,kind){
   const m=projMeta[kind],fl=part==='aero'?G.fac.wind:part==='engine'?G.fac.bench:0;
   let delay=m.delay;if(kind==='bold'&&G.fac.shop>=2)delay=1;
-  return {n:m.n,cost:projCost(part,kind),odds:Math.min(100,m.odds+fl*8),gain:m.gain+fl,fail:m.fail,delay};
+  const v=G.car[part],dim=v<78?1:v<84?.78:v<89?.58:v<93?.36:.2,gain=Math.max(.5,Math.round((m.gain+fl)*dim*2)/2);
+  return {n:m.n,cost:projCost(part,kind)+Math.round(Math.max(0,v-70)*.55),odds:Math.min(100,m.odds+fl*8),gain,fail:Math.min(m.fail,gain),delay};
 }
 function buyProject(part,kind){
   const p=projInfo(part,kind);
@@ -1515,10 +1532,165 @@ function garageClick(e){
   const sc=$('.scroll'),y=sc?sc.scrollTop:0;drawGarageTab();if(sc)sc.scrollTop=y;
 }
 
+/* ---------- 시즌과 오프시즌 ---------- */
+const TEAM_PRIZE=[110,92,78,66,56,48,42,36,30,26],OPERATING=25,MIN_BUDGET=40;
+const RULES=[
+  {id:'wear',n:'타이어 규정 변경',d:'모든 팀의 타이어 마모가 10% 늘어납니다.',wear:1.1},
+  {id:'pit',n:'피트 레인 규정 완화',d:'피트 손실이 2초 줄어 여러 번 들어오는 전략이 유리해집니다.',pit:-2},
+  {id:'rain',n:'우기 일정 조정',d:'시즌 내내 비 오는 경기가 늘어납니다.',rain:1.35},
+  {id:'aero',n:'공력 제한 강화',d:'모든 팀의 공력이 3 더 깎입니다.',aero:3},
+  {id:'engine',n:'엔진 출력 제한',d:'모든 팀의 엔진이 3 더 깎입니다.',engine:3},
+  {id:'dur',n:'부품 사용 제한',d:'모든 팀의 내구성이 3 더 깎입니다.',dur:3}
+];
+const R_GIVEN=['민호','Leo','Ivan','Noah','Kai','Sora','Eli','Tomas','Yuto','Diego','Finn','Aras','지훈','Marek','Owen','Rafa'],R_FAMILY=[['Brandt','BRA'],['Solano','SOL'],['Kovac','KOV'],['Harlow','HAR'],['Ito','ITO'],['Varga','VAR'],['Ryu','RYU'],['Dumas','DUM'],['Ferro','FRO'],['Nkemi','NKE'],['Halden','HLD'],['Oyama','OYA'],['Castell','CTL'],['Weir','WIR'],['Moon','MUN'],['Petrov','PTV']];
+const R_KO={Leo:'레오',Ivan:'이반',Noah:'노아',Kai:'카이',Sora:'소라',Eli:'엘리',Tomas:'토마스',Yuto:'유토',Diego:'디에고',Finn:'핀',Aras:'아라스',Marek:'마렉',Owen:'오웬',Rafa:'라파',Brandt:'브란트',Solano:'솔라노',Kovac:'코바치',Harlow:'할로우',Ito:'이토',Varga:'바르가',Ryu:'류',Dumas:'뒤마',Ferro:'페로',Nkemi:'은케미',Halden:'할덴',Oyama:'오야마',Castell:'카스텔',Weir:'위어',Moon:'문',Petrov:'페트로프'};
+function allDrivers(g){return [...g.drivers,...g.ai.flatMap(t=>t.drivers)]}
+function makeRookie(g,top){
+  const used=new Set(allDrivers(g).map(d=>d.code));if(g.off&&g.off.market)g.off.market.forEach(d=>used.add(d.code));
+  const given=R_GIVEN[irand(0,R_GIVEN.length-1)];let fam=R_FAMILY[irand(0,R_FAMILY.length-1)];
+  for(let i=0;i<R_FAMILY.length&&used.has(fam[1]);i++)fam=R_FAMILY[(R_FAMILY.indexOf(fam)+1)%R_FAMILY.length];
+  g.rookieN=(g.rookieN||0)+1;
+  const ko=/[가-힣]/.test(given)?R_KO[fam[0]]+given:(R_KO[given]||given)+' '+R_KO[fam[0]];
+  return {id:'r'+g.season+'_'+g.rookieN,n:ko,code:fam[1],age:irand(18,21),pace:irand(top?68:63,top?76:72),tyre:irand(54,76),wet:irand(54,80),mental:irand(52,74),contract:irand(1,3),rookie:true};
+}
+function driverValue(d){return Math.round(clamp((d.pace-62)*2.1+(d.tyre+d.wet+d.mental-195)*.3,6,95))}
+function driverTag(d){return d.age<=22?'신인':d.age<=26?'유망주':d.age<=32?'주전급':'베테랑'}
+function ageDriver(d){
+  const before={pace:d.pace,tyre:d.tyre,wet:d.wet,mental:d.mental};d.age=(d.age||26)+1;
+  const a=d.age,cap=v=>clamp(Math.round(v),40,99);
+  if(a<=23){d.pace=cap(d.pace+rand(.5,3.2));d.tyre=cap(d.tyre+rand(0,3));d.wet=cap(d.wet+rand(0,3));d.mental=cap(d.mental+rand(.5,3.5))}
+  else if(a<=30){d.pace=cap(d.pace+rand(-.6,1.2));d.tyre=cap(d.tyre+rand(-.3,1.4));d.wet=cap(d.wet+rand(-.3,1.4));d.mental=cap(d.mental+rand(0,1.5))}
+  else if(a<=34){d.pace=cap(d.pace+rand(-1.8,.2));d.tyre=cap(d.tyre+rand(-.4,.8));d.wet=cap(d.wet+rand(-.6,.6));d.mental=cap(d.mental+rand(0,.8))}
+  else{d.pace=cap(d.pace+rand(-3.4,-.8));d.tyre=cap(d.tyre+rand(-1.5,.2));d.wet=cap(d.wet+rand(-1.5,.2));d.mental=cap(d.mental+rand(-.5,.5))}
+  d.delta={pace:d.pace-before.pace,tyre:d.tyre-before.tyre,wet:d.wet-before.wet,mental:d.mental-before.mental};
+}
+function settleSeason(){
+  if(G.off)return;
+  const st=standings(),rank=st.findIndex(t=>t.id==='me')+1,pts=G.pts.me||0,ds=driverStandings(),dch=ds[0],prev=G.prevRank||10;
+  const prize=TEAM_PRIZE[rank-1],hit=G.target&&rank<=G.target,tBonus=hit?20:0,first=rank===1&&!G.career.titles,fBonus=first?50:0;
+  const best=G.results.length?Math.min(...G.results.map(r=>r.best)):99;
+  G.career.titles+=rank===1?1:0;if(dch.me)G.career.drvTitles++;
+  G.history.push({season:G.season,team:G.team.name,rank,pts,best,drv:dch.n,drvMe:!!dch.me,champ:st[0].n});
+  G.budget=G.budget+prize+tBonus+fBonus-OPERATING;
+  const aid=G.budget<MIN_BUDGET?MIN_BUDGET-G.budget:0;G.budget+=aid;
+  const off={step:'result',rank,prevRank:prev,pts,prize,tBonus,fBonus,target:G.target||0,first,aid,champ:st[0].n,drvChamp:dch.n,drvMe:!!dch.me,best,table:st.map(t=>({n:t.n,c:t.c,pts:t.pts,me:t.id==='me'})),news:[],market:[]};
+  G.off=off;
+  // 나이와 계약
+  G.drivers.forEach(d=>{ageDriver(d);d.contract=Math.max(0,(d.contract||1)-1)});
+  const retire=[];G.drivers=G.drivers.filter(d=>{if(d.age>=39){retire.push(d.n);return false}return true});
+  retire.forEach(n=>off.news.push(`${n} 선수가 은퇴했습니다.`));
+  const pool=[];
+  G.ai.forEach((t,ti)=>t.drivers.forEach((d,i)=>{ageDriver(d);d.contract=Math.max(0,(d.contract||1)-1);
+    if(d.age>=38||(d.age>=36&&Math.random()<.4)){const nr=makeRookie(G,ti<4);off.news.push(`${t.n}의 ${d.n} 은퇴, 신인 ${nr.n} 합류`);t.drivers[i]=nr;return}
+    if(d.contract===0)pool.push({...d,fromTeam:t.id,fromSlot:i,cost:driverValue(d),fromName:t.n})}));
+  pool.sort((a,b)=>b.pace-a.pace);
+  const mk=pool.slice(0,5);
+  for(let i=0;i<3;i++){const r=makeRookie(G,false);r.contract=0;mk.push({...r,cost:driverValue(r),fromName:'신인'})}
+  off.market=mk;off.market.sort((a,b)=>b.cost-a.cost);
+  // 내 드라이버 재계약 금액
+  off.renew={};G.drivers.forEach(d=>{const sp=ds.find(x=>x.id===d.id),hot=driverValue(d)>=42||(sp&&sp.pts>=30);off.renew[d.id]={cost:Math.round(driverValue(d)*(hot?1.2:1)),hot}});
+  // 규정과 전력
+  const rule=RULES[irand(0,RULES.length-1)];G.rule=rule;off.rule=rule;
+  const before={...G.car};
+  Object.keys(G.car).forEach(k=>{G.car[k]=Math.max(55,G.car[k]-(G.car[k]-58)*.22-1-(rule[k==='engine'?'engine':k==='aero'?'aero':k==='dur'?'dur':'_']||0))});
+  off.carBefore=before;off.carAfter={...G.car};
+  G.ai.forEach(t=>{['engine','aero','chassis','dur'].forEach(k=>{t[k]=clamp(t[k]-(t[k]-72)*.14+rand(-1,2.2)-(k===('engine')&&rule.engine?rule.engine:k==='aero'&&rule.aero?rule.aero:k==='dur'&&rule.dur?rule.dur:0),58,97)})});
+  const shift=[...G.ai].sort(()=>Math.random()-.5);
+  if(rank<=3){const push=rank===1?rand(2,3.5):rand(.5,1.5);G.ai.slice(0,5).forEach(t=>['engine','aero','chassis'].forEach(k=>t[k]=Math.min(97,t[k]+push)))}
+  const up=shift[0],dn=shift[1];['engine','aero','chassis'].forEach(k=>{up[k]=Math.min(97,up[k]+rand(1,3));dn[k]=Math.max(58,dn[k]-rand(1,3))});
+  off.news.push(`${up.n}이(가) 큰 투자로 전력을 끌어올렸습니다.`,`${dn.n}은(는) 핵심 인력이 떠나 전력이 약해졌습니다.`);
+  G.projects.forEach(p=>{G.car[p.part]+=p.gain});G.projects=[];
+  save();
+}
+function startSeason(){
+  const off=G.off;
+  G.prevRank=off.rank;G.sponsor=Math.round(6+(10-off.rank)*1.3);
+  G.season++;G.round=0;G.results=[];G.pts={me:0};G.dpts={};G.pop=[];G.dot={};
+  // 시장에 남은 드라이버는 원래 팀과 재계약
+  G.ai.forEach(t=>t.drivers.forEach(d=>{if(!d.contract)d.contract=irand(1,3)}));
+  G.calendar=shuffleCal();G.rainMod=TRACKS.map(()=>+rand(.6,1.5).toFixed(2));
+  Object.keys(G.devCount).forEach(k=>G.devCount[k]=Math.floor(G.devCount[k]/2));
+  G.target=Math.max(1,off.rank-(off.rank>3?2:1));
+  G.news=[`시즌 ${G.season} 개막! 규정: ${off.rule.n}. 시즌 목표는 팀 순위 ${G.target}위 이내입니다.`];
+  G.drivers.forEach(d=>{d.morale=Math.max(d.morale,70)});
+  allDrivers(G).forEach(d=>delete d.delta);
+  G.off=null;save();
+}
+function shuffleCal(){const a=TRACKS.map((_,i)=>i);for(let i=a.length-1;i>0;i--){const j=irand(0,i);[a[i],a[j]]=[a[j],a[i]]}return a}
+function curTrack(i){return TRACKS[G.calendar[i==null?G.round:i]]}
+function signDriver(id,years){
+  const off=G.off,d=off.market.find(x=>x.id===id);if(!d||G.drivers.length>=2)return false;
+  const cost=Math.round(d.cost*(years>1?1.15:.7));if(G.budget<cost)return false;
+  G.budget-=cost;
+  if(d.fromTeam){const t=G.ai.find(x=>x.id===d.fromTeam);if(t){const nr=makeRookie(G,G.ai.indexOf(t)<4);t.drivers[d.fromSlot]=nr;off.news.push(`${t.n}은(는) ${d.n} 선수를 잃고 신인 ${nr.n} 선수를 올렸습니다.`)}}
+  const nd={id:d.id,n:d.n,code:d.code,age:d.age,pace:d.pace,tyre:d.tyre,wet:d.wet,mental:d.mental,delta:d.delta,morale:75,contract:years,tag:driverTag(d),signed:true};
+  G.drivers.push(nd);off.market=off.market.filter(x=>x.id!==id);save();return true;
+}
+function renewDriver(id,years){const d=G.drivers.find(x=>x.id===id),q=G.off.renew[id];if(!d||!q)return false;const cost=Math.round(q.cost*(years>1?1:.6));if(G.budget<cost)return false;G.budget-=cost;d.contract=years;d.tag=driverTag(d);save();return true}
+function releaseDriver(id){const d=G.drivers.find(x=>x.id===id);if(!d)return;G.drivers=G.drivers.filter(x=>x.id!==id);G.off.news.push(`${d.n} 선수와 결별했습니다.`);save()}
+const canStartMarket=()=>G.drivers.length===2&&G.drivers.every(d=>d.contract>0);
+function statCell(l,v,dl){return `<span class="stat"><span>${l}</span><b>${v}${dl?`<em class="${dl>0?'up':'dn'}">${dl>0?'▲':'▼'}${Math.abs(dl)}</em>`:''}</b></span>`}
+function renderOff(){
+  settleSeason();
+  setTeamVars(G.team.c1,G.team.c2);closePreview();
+  const o=G.off,step=o.step,stp=[['result','결산'],['market','드라이버 시장'],['rules','규정 변경']];
+  let body='';
+  if(step==='result'){
+    const move=o.prevRank-o.rank;
+    body=`<div class="res-head"><div><span class="lab">시즌 ${G.season} 결산</span><h1>${esc(G.team.name)} 팀 순위 ${o.rank}위</h1></div></div>
+      <div class="sumrow"><div><span class="lab">팀 포인트</span><b>${o.pts}</b></div><div><span class="lab">최고 순위</span><b>${o.best>20?'-':'P'+o.best}</b></div><div><span class="lab">상금 - 운영비</span><b>${o.prize-OPERATING>=0?'+':''}${o.prize-OPERATING}억</b></div><div><span class="lab">지난 시즌 대비</span><b>${G.season===1?'-':move>0?'▲'+move:move<0?'▼'+(-move):'유지'}</b></div></div>
+      ${o.target?`<div class="news"><span class="${o.tBonus?'good':'bad'}">${o.tBonus?`✓ 시즌 목표(${o.target}위 이내) 달성, 보너스 ${o.tBonus}억`:`✕ 시즌 목표(${o.target}위 이내) 달성 실패`}</span></div>`:''}
+      ${o.aid?`<div class="news"><span>구단주가 다음 시즌 준비금 ${o.aid}억을 지원했습니다.</span></div>`:''}
+      <p class="note">올해의 챔피언: ${esc(o.champ)} · 드라이버 챔피언: ${esc(o.drvChamp)}${o.drvMe?' (우리 팀)':''}</p>
+      <section class="sec"><h2>최종 팀 순위</h2><div class="tblw"><table class="tbl">${o.table.map((t,i)=>`<tr class="${t.me?'me':''}"><td class="num" style="width:26px">${i+1}</td><td><i class="tick" style="background:${t.c};margin-right:7px;vertical-align:-2px"></i>${esc(t.n)}</td><td class="r">${t.pts}</td></tr>`).join('')}</table></div></section>
+      <div class="foot"><span class="note">다음은 재계약과 영입입니다.</span><button class="btn pri" id="offNext">드라이버 시장으로</button></div>`;
+  }else if(step==='market'){
+    const mineCard=d=>{const q=o.renew[d.id],c=d.contract,dl=d.delta||{};
+      return `<div class="drv dcard"><div class="drv-top"><strong>${esc(d.n)}</strong><span class="note">${d.age}세 · ${driverTag(d)}</span></div>
+        <span class="stats">${statCell('속도',d.pace,dl.pace)}${statCell('타이어',d.tyre,dl.tyre)}${statCell('빗길',d.wet,dl.wet)}${statCell('멘탈',d.mental,dl.mental)}</span>
+        ${c>0?`<div class="now">계약 ${c}시즌 남음</div>`:`<div class="locked">계약 만료${q&&q.hot?' · 다른 팀들이 노리고 있어 몸값이 올랐습니다':''}</div>
+        ${q?`<div class="proj"><button data-renew="${d.id}" data-y="1" ${G.budget<Math.round(q.cost*.6)?'disabled':''}><strong>1시즌 재계약</strong>${Math.round(q.cost*.6)}억</button><button data-renew="${d.id}" data-y="2" ${G.budget<q.cost?'disabled':''}><strong>2시즌 재계약</strong>${q.cost}억</button></div>`:`<div class="proj"></div>`}`}
+        <button class="btn fbtn" data-release="${d.id}">결별</button></div>`};
+    body=`<div class="res-head"><div><span class="lab">시즌 ${G.season+1} 준비</span><h1>드라이버 시장</h1></div><div class="money"><span class="lab">개발비</span><br><b>${G.budget}억</b></div></div>
+      ${o.news.length?`<div class="news">${o.news.map(n=>`<span>${esc(n)}</span>`).join('')}</div>`:''}
+      <section class="sec"><h2>내 드라이버 (${G.drivers.length}/2)</h2><div class="drv-grid">${G.drivers.map(mineCard).join('')||'<p class="note">계약한 드라이버가 없습니다. 아래에서 2명을 영입하세요.</p>'}</div></section>
+      <section class="sec"><h2>영입 가능한 드라이버</h2><div class="drv-grid">${o.market.map(d=>{const dl=d.delta||{},c1=Math.round(d.cost*.7),c2=Math.round(d.cost*1.15),full=G.drivers.length>=2;
+        return `<div class="drv dcard"><div class="drv-top"><strong>${esc(d.n)}</strong><span class="note">${d.age}세 · ${esc(d.fromName)}</span></div>
+        <span class="stats">${statCell('속도',d.pace,dl.pace)}${statCell('타이어',d.tyre,dl.tyre)}${statCell('빗길',d.wet,dl.wet)}${statCell('멘탈',d.mental,dl.mental)}</span>
+        <div class="proj"><button data-sign="${d.id}" data-y="1" ${full||G.budget<c1?'disabled':''}><strong>1시즌 영입</strong>${c1}억</button><button data-sign="${d.id}" data-y="2" ${full||G.budget<c2?'disabled':''}><strong>2시즌 영입</strong>${c2}억</button></div></div>`}).join('')}</div></section>
+      <div class="foot"><span class="note">${canStartMarket()?'드라이버가 모두 정해졌습니다.':G.drivers.length<2?'자리가 비어 있습니다. 결별하면 빈자리에 새로 영입할 수 있습니다.':'계약이 끝난 드라이버는 재계약하거나 결별해야 합니다.'}</span><button class="btn pri" id="offNext" ${canStartMarket()?'':'disabled'}>규정 변경 보기</button></div>`;
+  }else{
+    const rows=Object.keys(PARTS).map(k=>`<tr><td>${PARTS[k].n}</td><td class="num">${Math.round(o.carBefore[k])}</td><td class="num">→ ${Math.round(G.car[k])}</td></tr>`).join('');
+    body=`<div class="res-head"><div><span class="lab">시즌 ${G.season+1} 준비</span><h1>규정 변경</h1></div></div>
+      <div class="rule-card"><span class="lab">이번 시즌 규정</span><strong>${esc(o.rule.n)}</strong><span>${esc(o.rule.d)}</span></div>
+      <section class="sec"><h2>내 차 능력치</h2><p class="note">규정이 바뀌면 지난해 차의 이점이 일부 사라집니다. 다른 팀도 전력이 달라졌습니다. 시설과 신기술은 그대로 남습니다.</p><div class="tblw"><table class="tbl">${rows}</table></div></section>
+      <section class="sec"><h2>시설과 신기술</h2><p class="note">시설 ${Object.values(G.fac).reduce((a,b)=>a+b,0)}단계 · 신기술 ${Object.keys(G.tech).length}개 유지</p></section>
+      <div class="foot"><span class="note">다음 시즌은 서킷 순서와 날씨가 달라집니다.</span><button class="btn pri" id="offNext">시즌 ${G.season+1} 개막</button></div>`;
+  }
+  $('#app').innerHTML=`<div class="scroll"><div class="wrap"><div class="off-steps">${stp.map(([k,n])=>`<span class="${k===step?'on':''}">${n}</span>`).join('')}</div>${body}</div></div>`;
+  $('#app').onclick=e=>{const b=e.target.closest('button');if(!b||b.disabled)return;const sc=$('.scroll'),y=sc?sc.scrollTop:0;const keep=()=>{renderOff();const n=$('.scroll');if(n)n.scrollTop=y};
+    if(b.id==='offNext'){
+      if(step==='result'){o.step='market';save();go(renderOff)}
+      else if(step==='market'){o.step='rules';save();go(renderOff)}
+      else{startSeason();go(renderHub)}
+    }else if(b.dataset.renew){renewDriver(b.dataset.renew,+b.dataset.y);keep()}
+    else if(b.dataset.sign){signDriver(b.dataset.sign,+b.dataset.y);keep()}
+    else if(b.dataset.release){releaseDriver(b.dataset.release);keep()}
+  };
+  if(step==='result'&&!o.celebrated&&o.rank===1){o.celebrated=true;save();setTimeout(()=>{confetti();if(o.first)showTitlePop(o)},300)}
+}
+function renderEnd(){renderOff()}
+function showTitlePop(o){
+  if($('#titlePop'))return;
+  const w=document.createElement('div');w.className='pop-wrap';w.id='titlePop';
+  w.innerHTML=`<div class="pop-card title-card" role="dialog" aria-modal="true"><span class="lab">시즌 ${G.season} 챔피언</span><h2>첫 챔피언 달성!</h2><p>${esc(G.team.name)}이(가) 꼴찌에서 정상에 올랐습니다. 스폰서 보너스 ${o.fBonus}억이 들어왔습니다.</p><div class="pop-btns"><button class="btn pri" id="titleOk">다음 시즌도 지키기</button></div></div>`;
+  document.body.appendChild(w);$('#titleOk',w).onclick=()=>w.remove();
+}
+
 /* ---------- 경기 전 화면 ---------- */
 function renderPre(){
   const T=P.T,mine=P.grid.map((e,i)=>({e,i})).filter(x=>x.e.mine);
-  const life=t=>Math.round(88/(TYRES[t].w*T.wear));
+  const life=t=>Math.round(88/(TYRES[t].w*T.wear*((G.rule&&G.rule.wear)||1)));
   $('#app').innerHTML=`<div class="scroll"><div class="wrap">
   <header class="res-head"><div><span class="lab">라운드 ${G.round+1} · ${T.laps}랩 · ${T.kind}</span><h1>${esc(T.name)}</h1></div>
     <div class="money"><span class="lab">비 예보</span><br><b class="num" style="font-size:28px;font-weight:800;color:${P.forecast>=40?'var(--rain)':'inherit'}">${P.forecast}%</b></div></header>
@@ -1803,23 +1975,24 @@ function finishRace(){
   if(UI&&UI.ro)UI.ro.disconnect();
   if(S3D){S3D.dispose();S3D=null}
   SND.stop();try{if(document.fullscreenElement)document.exitFullscreen().catch(()=>{})}catch(e){}
-  const cl=classify(R);let earned=SPONSOR,ptsGot=0,bestPos=99;const rows=[];
+  const cl=classify(R);let earned=G.sponsor||SPONSOR,ptsGot=0,bestPos=99;const rows=[];
   cl.forEach((c,i)=>{
     const pts=!c.dnf&&i<10?POINTS[i]:0,tid=c.mine?'me':c.team.id;
     G.pts[tid]=(G.pts[tid]||0)+pts;G.dpts[c.d.id]=(G.dpts[c.d.id]||0)+pts;
     rows.push({pos:i+1,c,pts});
     if(c.mine){const d=G.drivers.find(x=>x.id===c.d.id);
+      G.career.points+=pts;if(!c.dnf){if(i===0)G.career.wins++;if(i<3)G.career.podiums++}
       earned+=c.dnf?1:PRIZE[i];ptsGot+=pts;if(!c.dnf)bestPos=Math.min(bestPos,i+1);
       d.morale=clamp(c.d.morale+(pts?5:0)+(c.dnf?-3:1)+G.fac.sim*1.5,20,100);}
   });
   const miles=[];MILES.forEach(m=>{if(!G.miles[m.id]&&m.test(bestPos)){G.miles[m.id]=true;earned+=m.bonus;miles.push(m)}});
   G.budget+=earned;
-  G.results.push({track:R.track.name,best:bestPos,pts:ptsGot});
+  G.career.races++;G.results.push({track:R.track.name,best:bestPos,pts:ptsGot});
   G.round++;
   // AI 개발 + 내 프로젝트 정산
-  G.ai.forEach((t,i)=>{for(let k=0;k<2;k++){const key=['engine','aero','chassis','dur'][irand(0,3)];t[key]=Math.min(99,t[key]+rand(.1,.45)+i*.03)}});
+  G.ai.forEach((t,i)=>{for(let k=0;k<2;k++){const key=['engine','aero','chassis','dur'][irand(0,3)];t[key]=Math.min(97,t[key]+rand(.1,.45)+i*.03)}});
   const news=[];
-  G.projects=G.projects.filter(p=>{if(p.due<=G.round){const m=projMeta[p.kind],ok=p.ok!=null?p.ok:p.gain>=m.gain,from=Math.round(G.car[p.part]);G.car[p.part]+=p.gain;G.pop=G.pop||[];G.pop.push({part:p.part,kind:p.kind,ok,gain:p.gain,from,to:Math.round(G.car[p.part])});news.push(ok?`✓ ${PARTS[p.part].n} ${m.n} 성공: +${p.gain}`:`✕ ${PARTS[p.part].n} ${m.n} 실패: +${p.gain}만 남았습니다`);return false}return true});
+  G.projects=G.projects.filter(p=>{if(p.due<=G.round){const m=projMeta[p.kind],ok=p.ok!=null?p.ok:p.gain>=m.gain,from=Math.round(G.car[p.part]);G.car[p.part]=Math.min(99,G.car[p.part]+p.gain);G.pop=G.pop||[];G.pop.push({part:p.part,kind:p.kind,ok,gain:p.gain,from,to:Math.round(G.car[p.part])});news.push(ok?`✓ ${PARTS[p.part].n} ${m.n} 성공: +${p.gain}`:`✕ ${PARTS[p.part].n} ${m.n} 실패: +${p.gain}만 남았습니다`);return false}return true});
   miles.forEach(m=>{const pt=PATTERNS.find(p=>p.unlock===m.id);if(pt)news.unshift(`✓ 새 도장 잠금 해제: ${pt.n}`);news.unshift(`✓ ${m.n} 달성! 스폰서 보너스 ${m.bonus}억`)});
   G.news=news;G.dot=G.dot||{};if(news.some(n=>/개발|도장/.test(n)))G.dot.garage=true;
   lastResult={rows,earned,ptsGot,bestPos,track:R.track,fast:R.fast&&R.cars[R.fast.id],fastT:R.fast&&R.fast.t,miles};
@@ -1856,18 +2029,6 @@ function renderResult(){
   $('#toHub').onclick=()=>go(renderHub);
   setTimeout(showResearchPop,RM?0:450);
 }
-function renderEnd(){
-  const rank=teamRank(),total=G.pts.me||0,best=Math.min(...G.results.map(r=>r.best));
-  $('#app').innerHTML=`<div class="scroll"><div class="wrap">
-  <header class="res-head"><div><span class="lab">시즌 1 종료</span><h1>${esc(G.team.name)} ${rank}위</h1></div></header>
-  <div class="sumrow"><div><span class="lab">팀 포인트</span><b data-count="${total}">${total}</b></div><div><span class="lab">최고 순위</span><b>${best>20?'완주 없음':'P'+best}</b></div><div><span class="lab">남은 개발비</span><b>${G.budget}억</b></div></div>
-  <section class="sec"><h2>팀 순위</h2><div class="tblw"><table class="tbl">${standings().map((t,i)=>`<tr class="${t.id==='me'?'me':''}"><td class="num" style="width:26px">${i+1}</td><td><i class="tick" style="background:${t.c};margin-right:7px;vertical-align:-2px"></i>${esc(t.n)}</td><td class="r">${t.pts}</td></tr>`).join('')}</table></div></section>
-  <section class="sec"><h2>드라이버 순위</h2><div class="tblw"><table class="tbl">${driverStandings().map((d,i)=>`<tr class="${d.me?'me':''}"><td class="num" style="width:26px">${i+1}</td><td><i class="tick" style="background:${d.c};margin-right:7px;vertical-align:-2px"></i>${esc(d.n)}</td><td class="r">${d.pts}</td></tr>`).join('')}</table></div></section>
-  <p class="note">이 버전은 1시즌까지입니다. 다음 시즌으로 이어지는 기능은 아직 없습니다.</p>
-  <div class="foot"><span></span><button class="btn pri" id="again">새 구단으로 다시 시작</button></div>
-  </div></div>`;
-  $('#again').onclick=()=>{wipe();G=null;go(startCreate)};
-}
 function startCreate(){
   C={name:'블랙스톤 레이싱',num:27,c1:PRIMARY[4],c2:SECOND[1],picks:['c4','c2'],anim:RM?'':'drive'};
   renderCreate();
@@ -1886,7 +2047,7 @@ function renderIntro(){
   $('#app').onclick=null;
   $('#app').innerHTML=`<div class="intro" id="introBox"><canvas id="iGl" aria-hidden="true"></canvas><canvas id="iHud" aria-hidden="true"></canvas><div class="i-shade"></div>
     <div class="i-panel"><span class="i-en">PIT WALL GRAND PRIX</span><h1>피트월<br>그랑프리</h1><div class="i-chk" aria-hidden="true"></div>
-      <div class="i-go"><button class="btn pri" id="introGo">${saved?'이어서 하기':'시작하기'}</button>${saved?`<span class="i-save"><b>${esc(saved.team.name)}</b>${done?'시즌 종료':`라운드 ${saved.round+1} / ${TRACKS.length}`}</span>`:''}</div></div></div>`;
+      <div class="i-go"><button class="btn pri" id="introGo">${saved?'이어서 하기':'시작하기'}</button>${saved?`<span class="i-save"><b>${esc(saved.team.name)}</b>${done?`시즌 ${saved.season} 종료`:`시즌 ${saved.season} · 라운드 ${saved.round+1}/${TRACKS.length}`}</span>`:''}</div></div></div>`;
   INTRO={saved,stop:false};
   const me=INTRO;
   $('#introGo').onclick=()=>go(()=>{closeIntro();G?renderHub():startCreate()});
