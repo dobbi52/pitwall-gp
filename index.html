@@ -784,7 +784,8 @@ const SND={ctx:null,on:(()=>{try{return localStorage.getItem('pitwall-snd')!=='0
       this.buf=buf;this.cg=x.createGain();this.cg.gain.value=this.racing?.012:0;n.connect(this.cf);this.cf.connect(this.cg);this.cg.connect(this.master);n.start();
     }catch(e){}
   },
-  engine(v,running){if(!this.master)return;const t=this.ctx.currentTime;this.o1.frequency.setTargetAtTime(70+v*150,t,.08);this.o2.frequency.setTargetAtTime(105+v*225,t,.08);this.eg.gain.setTargetAtTime(running?.035:0,t,.15)},
+  engine(v,running){if(!this.master)return;const t=this.ctx.currentTime;this.o1.frequency.setTargetAtTime(70+v*150,t,.08);this.o2.frequency.setTargetAtTime(105+v*225,t,.08);},
+  launch(){if(!this.master)return;const t=this.ctx.currentTime;this.eg.gain.cancelScheduledValues(t);this.eg.gain.setTargetAtTime(.05,t,.08);this.eg.gain.setTargetAtTime(0,t+1,.45)},
   cheer(l){if(!this.master)return;const t=this.ctx.currentTime;this.cg.gain.cancelScheduledValues(t);this.cg.gain.setTargetAtTime(.012+l*.13,t,.06);this.cg.gain.setTargetAtTime(this.racing?.012:0,t+.8+l,.7)},
   beep(fr,len){if(!this.master)return;const x=this.ctx,o=x.createOscillator(),g=x.createGain(),t=x.currentTime;o.type='sine';o.frequency.value=fr;g.gain.setValueAtTime(.09,t);g.gain.exponentialRampToValueAtTime(.001,t+len);o.connect(g);g.connect(this.master);o.start(t);o.stop(t+len)},
   whoosh(){if(!this.master||!this.buf)return;const x=this.ctx,n=x.createBufferSource(),f=x.createBiquadFilter(),g=x.createGain(),t=x.currentTime;n.buffer=this.buf;f.type='bandpass';f.Q.value=1.2;f.frequency.setValueAtTime(350,t);f.frequency.exponentialRampToValueAtTime(2400,t+.3);f.frequency.exponentialRampToValueAtTime(500,t+.6);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.09,t+.26);g.gain.exponentialRampToValueAtTime(.0001,t+.62);n.connect(f);f.connect(g);g.connect(this.master);n.start(t);n.stop(t+.65)},
@@ -1430,7 +1431,7 @@ function drawHubTab(){
     body.innerHTML=`<div class="wrap tabfade"><section class="sec"><h2>메뉴</h2>
       ${CLOUD.host?'<div class="menu-row" data-acc hidden></div>':''}
       <div class="menu-row"><span>화면 전환과 움직임 효과</span><button class="btn" id="menuFx" aria-pressed="${!RM}">효과 ${RM?'끔':'켬'}</button></div>
-      <div class="menu-row"><span>효과음과 엔진음</span><button class="btn" id="menuSnd" aria-pressed="${SND.on}">소리 ${SND.on?'켬':'끔'}</button></div>
+      <div class="menu-row"><span>효과음과 관중 소리</span><button class="btn" id="menuSnd" aria-pressed="${SND.on}">소리 ${SND.on?'켬':'끔'}</button></div>
       <div class="menu-row"><span>지금까지의 시즌을 지우고 새 구단으로 시작합니다.</span><div class="confirm" id="resetBox"><button class="btn" id="askReset">처음부터 다시 시작</button></div></div></section></div>`;
   renderAccount();
   }else if(HT==='driver'){
@@ -1877,7 +1878,7 @@ function runLights(){
   const tick=()=>{if(!R||R.lightsDone)return;
     $('#lights').hidden=false;const rc=$('#rcard');if(rc)rc.remove();
     if(i<5){ls[i].classList.add('on');i++;if(S3D)S3D.setLights(i);SND.beep(640,.16);setTimeout(tick,650)}
-    else setTimeout(()=>{if(!R)return;$('#lights').hidden=true;if(S3D){S3D.setLights(0);S3D.cheer(1)}SND.beep(1040,.35);SND.cheer(1);R.lightsDone=true;radio(R,'출발!')},rand(350,1200))};
+    else setTimeout(()=>{if(!R)return;$('#lights').hidden=true;if(S3D){S3D.setLights(0);S3D.cheer(1)}SND.beep(1040,.35);SND.cheer(1);SND.launch();R.lightsDone=true;radio(R,'출발!')},rand(350,1200))};
   setTimeout(tick,S3D&&!RM?3000:700);
   let last=performance.now(),acc=0;
   const loop=now=>{
@@ -2000,7 +2001,7 @@ function updateDOM(now){
     if(R.sc&&!UI.scWas){callout('세이프티카 출동','sc');if(S3D)S3D.cheer(.8);SND.cheer(.8)}
     UI.scWas=!!R.sc;
     R.mine.forEach(c=>{const p=o.indexOf(c)+1,lp=UI.lastPos[c.id];
-      if(lp&&p<lp&&!c.dnf&&!c.pit&&R.t>6){callout(`${c.d.code} P${p} ▲`);if(S3D)S3D.cheer(.55);SND.cheer(.55)}
+      if(lp&&p<lp&&!c.dnf&&!c.pit&&R.t>6){callout(`${c.d.code} P${p} ▲`);if(S3D)S3D.cheer(.55);SND.cheer(.55);SND.whoosh()}
       if(c.pit&&!c._pitC){c._pitC=true;callout(`${c.d.code} 피트 인`,'pit');SND.beep(420,.12)}
       if(!c.pit&&c._pitC){c._pitC=false;callout(`${c.d.code} 피트 스톱 ${(c.lastStop||0).toFixed(1)}초`,'pit');SND.beep(760,.14)}
       if(c.dnf&&!c._dnfC){c._dnfC=true;callout(`${c.d.code} 리타이어`,'bad');SND.cheer(.5);if(S3D)S3D.cheer(1)}
