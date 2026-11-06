@@ -311,6 +311,25 @@ table{border-collapse:collapse;width:100%}
 .proj button:hover:not(:disabled),.tp:hover{border-color:#8896aa}
 .meter{background:#10151d}.bar,.ptm{background:#10151d}
 .sec>h2{margin-top:4px}
+.mis-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px}
+.mis{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:10px;text-align:left;background:var(--panel);border:1px solid var(--line)}
+.mis strong{font-size:14px}.mis span{grid-column:1;font-size:12px;color:var(--mute)}.mis b{grid-column:2;grid-row:1/3;align-self:center;font:800 18px var(--disp);color:var(--flag);font-variant-numeric:tabular-nums}
+.mis[aria-pressed=true]{border-color:var(--team);background:color-mix(in srgb,var(--team) 22%,var(--panel));box-shadow:inset 0 0 0 1px var(--team)}
+.dp-act{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px}
+.dp-act .box{min-width:0;font-size:14px}
+.boost{position:relative;overflow:hidden;height:40px;background:#10151d;border:1px solid #2e72c9;color:#d7e8ff;font-size:12px;font-weight:700;white-space:nowrap}
+.boost i{position:absolute;inset:0 auto 0 0;background:#1d4d8c;transition:width .25s}.boost span{position:relative}
+.boost:disabled{opacity:.55;border-color:var(--line)}
+.boost.near{border-color:#7fc0ff;box-shadow:0 0 0 2px rgba(127,192,255,.55);animation:pulse2 .9s infinite}
+.boost.on{opacity:1;border-color:#fff;color:#fff}.boost.on i{background:#2e8bff}
+@keyframes pulse2{50%{box-shadow:0 0 0 2px rgba(127,192,255,.1)}}
+.radio{flex-wrap:wrap}.radio p{min-width:70%}
+.dec{flex:0 0 100%;display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px}
+.dec button{display:grid;gap:1px;padding:8px 6px;background:var(--panel2);border:1px solid var(--flag);text-align:center;color:#fff;animation:pop .22s ease-out}
+.dec strong{font-size:14px}.dec span{font-size:11px;color:#cdd5e1;line-height:1.3}
+.dec button:hover{background:#3a4556}
+.pt-mis{font-size:11px;color:var(--flag);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:760px){.boost{height:36px}}
 .i-acc{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px}
 .acc-who{display:grid;gap:1px;font-size:12px;color:#cdd5e1;min-width:0}.acc-who b{color:#fff;font-size:13px;overflow-wrap:anywhere}.acc-who em{font-style:normal;color:#ffb0b5}
 .acc-btn{min-height:38px;font-size:13px;padding:0 12px;flex:none}
@@ -556,18 +575,18 @@ function preparePre(T){
   const rainy=Math.random()<rp;
   const plan=rainy?{start:irand(3,T.laps-5),dur:irand(3,10),target:rand(.5,.95)}:null;
   const fc=clamp(Math.round((rainy?Math.max(rp,.35):rp*.8)*100+rand(-10,12)),0,90);
-  P={T,grid:entries,plan,forecast:fc,falseRain:!rainy&&Math.random()<rp*.5?irand(4,T.laps-5):0,rainP:rp,tyres:['M','M']};
+  P={T,grid:entries,plan,forecast:fc,falseRain:!rainy&&Math.random()<rp*.5?irand(4,T.laps-5):0,rainP:rp,tyres:['M','M'],missions:makeMissions(T,entries,rp),mission:null};
 }
 function makeRace(P,auto){
   const T=P.T;buildTrack(T);
-  const cars=P.grid.map((e,i)=>({d:e.d,team:e.team,perf:e.perf,mine:!!e.mine,grid:i+1,dist:-(i+1)*.0042,lap:0,tyre:'M',wear:0,used:new Set(),mode:'normal',pitReq:null,pit:null,lt:T.base,speed:0,lastLap:0,best:0,lapStart:0,dnf:false,done:false,noise:0,passUntil:0,nextTry:0,slowUntil:0,yieldUntil:0,startDelay:rand(0,.5)+(100-e.d.mental)*.006,plan:rand(62,84),pits:0,warned:0,id:i}));
+  const cars=P.grid.map((e,i)=>({d:e.d,team:e.team,perf:e.perf,mine:!!e.mine,grid:i+1,dist:-(i+1)*.0042,lap:0,tyre:'M',wear:0,used:new Set(),mode:'normal',pitReq:null,pit:null,lt:T.base,speed:0,lastLap:0,best:0,lapStart:0,dnf:false,done:false,noise:0,batt:100,boostUntil:0,boostCd:0,eff:0,effUntil:0,passUntil:0,nextTry:0,slowUntil:0,yieldUntil:0,startDelay:rand(0,.5)+(100-e.d.mental)*.006,plan:rand(62,84),pits:0,warned:0,id:i}));
   let mi=0;
   cars.forEach(c=>{
     if(c.mine&&!auto){c.tyre=P.tyres[G.drivers.findIndex(d=>d.id===c.d.id)];mi++}
     else{const r=Math.random();c.tyre=r<.25?'S':r<.75?'M':'H'}
     c.used.add(c.tyre);
   });
-  return {track:T,cars,mine:cars.filter(c=>c.mine),laps:T.laps,t:0,wet:0,wetT:0,sc:null,scCount:0,leaderLap:0,chequered:false,finished:false,fast:null,plan:P.plan,falseRain:P.falseRain,auto,fc:P.forecast,rainP:P.rainP,rainWas:false,autoPilot:false,msg:null,slowUntil:0,scale:7,wetCalled:false,dryCalled:false,scripted:Math.random()<.5?irand(4,T.laps-5):0,orderCd:0,ordAsk:0,rainNow:false,log:[]};
+  return {track:T,cars,mine:cars.filter(c=>c.mine),laps:T.laps,t:0,wet:0,wetT:0,sc:null,scCount:0,leaderLap:0,chequered:false,finished:false,fast:null,plan:P.plan,falseRain:P.falseRain,auto,fc:P.forecast,rainP:P.rainP,myPass:0,decN:0,decision:null,decLaps:[irand(3,Math.floor(T.laps/2)),irand(Math.floor(T.laps/2)+1,T.laps-3)],mission:P.missions&&P.mission!=null?P.missions[P.mission]:null,rainWas:false,autoPilot:false,msg:null,slowUntil:0,scale:7,wetCalled:false,dryCalled:false,scripted:Math.random()<.5?irand(4,T.laps-5):0,orderCd:0,ordAsk:0,rainNow:false,log:[]};
 }
 function radio(R,text,urgent){R.msg={text,urgent:!!urgent,at:performance.now()};if(urgent&&!R.auto&&!R.autoPilot)R.slowUntil=performance.now()+8000}
 function calcLap(c,R){
@@ -583,6 +602,7 @@ function calcLap(c,R){
   if(c.mine&&d.morale<70)lt+=(70-d.morale)*.006;
   if(c.punct)lt+=12;
   if(c.yieldUntil>R.t)lt+=1.2;
+  if(c.effUntil>R.t)lt+=c.eff;
   return lt;
 }
 function pickDry(c,R){
@@ -645,7 +665,8 @@ function updateForecast(R){
 }
 function leaderEvents(R){
   const L=R.leaderLap,pl=R.plan;
-  if(pl&&L===pl.start)R.rainNow=true;
+  if(pl&&L===pl.start){R.rainNow=true;R.rainEver=true}
+  if(!R.auto&&R.decLaps.includes(L)){if(R.sc||R.decision){if(L+1<R.laps-2)R.decLaps.push(L+1)}else fireDecision(R)}
   if(pl&&L===pl.start+pl.dur)R.rainNow=false;
   updateForecast(R);
   if(R.scripted&&L===R.scripted){const pool=R.cars.filter(c=>!c.dnf&&!c.done&&!c.pit);const v=pool[irand(0,pool.length-1)];if(v)v.incident={at:R.t+rand(4,R.track.base*.7),type:'crash'}}
@@ -673,6 +694,7 @@ function onCross(c,R,nl){
     c.done=true;c.finishT=R.t;return;
   }
   c.noise=rand(-.22,.22)+(c.mine?0:rand(-.05,.05));
+  c.batt=Math.min(100,c.batt+(R.sc?15:c.mode==='manage'?13:7));
   // 다음 랩 사고·고장
   const risk=MODE[c.mode].risk,dur=c.mine?G.car.dur:c.team.dur;
   const slick=c.tyre!=='W'?R.wet:0;
@@ -719,10 +741,12 @@ function step(R,dt){
       if(prev&&gap<1.5)lt+=.12;
       const passing=c.passUntil>R.t;
       if(passing)lt-=.5;
+      if(prev&&gap<1&&(!c.mine||R.auto||R.autoPilot)&&c.lap>=1&&c.batt>=BOOST_COST&&R.t>c.boostCd&&Math.random()<.03)useBoost(c,R);
+      const boosting=c.boostUntil>R.t;if(boosting)lt-=1.6;
       if(prev&&gap<.9&&!passing&&lt<prev.lt&&R.t>c.nextTry&&c.lap>=0){
         c.nextTry=R.t+2.5;
-        const delta=prev.lt-lt,p=clamp(.08+delta*.55*T.ot+(c.d.mental-prev.d.mental)*.002,.02,.85);
-        if(Math.random()<p){c.passUntil=R.t+8}
+        const delta=prev.lt-lt,p=clamp(.08+delta*.55*T.ot+(c.d.mental-prev.d.mental)*.002+(boosting?.3:0)+(prev.batt<15?.12:0),.02,.92);
+        if(Math.random()<p){c.passUntil=R.t+8;if(c.mine)R.myPass++}
       }
       c.lt=lt;speed=1/lt;
       const ramp=Math.min(1,.45+R.t/5);speed*=ramp;
@@ -792,6 +816,70 @@ const SND={ctx:null,on:(()=>{try{return localStorage.getItem('pitwall-snd')!=='0
   toggle(){this.on=!this.on;try{localStorage.setItem('pitwall-snd',this.on?'1':'0')}catch(e){}if(this.master)this.master.gain.setTargetAtTime(this.on?1:0,this.ctx.currentTime,.03)},
   stop(){this.racing=false;if(this.master){this.eg.gain.setTargetAtTime(0,this.ctx.currentTime,.1);this.cg.gain.setTargetAtTime(0,this.ctx.currentTime,.3)}}
 };
+
+/* ---------- 배터리 부스트 ---------- */
+const BOOST_COST=25,BOOST_LEN=18;
+function useBoost(c,R){
+  if(c.batt<BOOST_COST||c.dnf||c.done||c.pit||R.sc||c.boostUntil>R.t)return false;
+  c.batt-=BOOST_COST;c.boostUntil=R.t+BOOST_LEN;c.boostCd=R.t+30;return true;
+}
+/* ---------- 돌발 상황 무전 ---------- */
+function eff(c,R,add,laps){c.eff=add;c.effUntil=R.t+R.track.base*laps}
+const DECS=[
+  {id:'brake',cond:()=>true,text:c=>`${c.d.code}: 브레이크가 과열됩니다. 어떻게 할까요?`,opts:[
+    {n:'속도 줄이기',d:'2랩 동안 조금 느려짐',f:(c,R)=>{eff(c,R,.4,2);return `${c.d.code}: 브레이크를 아끼며 달립니다.`}},
+    {n:'그대로 밀기',d:'25% 확률로 크게 밀림',f:(c,R)=>{if(Math.random()<.25){c.slowUntil=R.t+16;return `${c.d.code}: 브레이크가 잠겼습니다! 약 8초를 잃었습니다.`}return `${c.d.code}: 브레이크가 버텼습니다. 시간을 지켰습니다.`}}]},
+  {id:'attack',cond:(c,o,i)=>{const f=o[i-1];return f&&!f.mine&&!f.pit&&(f.dist-c.dist)*c._b<3&&f.wear>50},text:(c,o,i)=>`${c.d.code}: 앞의 ${o[i-1].d.code} 타이어가 끝나 갑니다. 승부할까요?`,opts:[
+    {n:'기회 기다리기',d:'배터리 15 회복',f:c=>{c.batt=Math.min(100,c.batt+15);return `${c.d.code}: 배터리를 채우며 기회를 봅니다.`}},
+    {n:'지금 공격',d:'무료 부스트, 타이어 마모 +8%',f:(c,R)=>{c.boostUntil=R.t+BOOST_LEN+6;c.wear=Math.min(100,c.wear+8);return `${c.d.code}: 전력으로 따라붙습니다!`}}]},
+  {id:'contact',cond:(c,o,i)=>{const b=o[i+1];return b&&!b.mine&&!b.dnf&&!b.pit&&(c.dist-b.dist)*c._b<2},text:(c,o,i)=>`${c.d.code}: 뒤의 ${o[i+1].d.code}가 부딪쳤습니다! 항의할까요?`,opts:[
+    {n:'넘어가기',d:'드라이버 사기 +2',f:c=>{c.d.morale=Math.min(100,c.d.morale+2);return `${c.d.code}: 경기에 집중하겠습니다.`}},
+    {n:'항의하기',d:'40% 상대 페널티, 실패하면 사기 -4',f:(c,R,o,i)=>{const b=o[i+1];if(Math.random()<.4&&b&&!b.dnf){b.slowUntil=R.t+20;return `심판: ${b.d.code}에게 10초 페널티를 줍니다!`}c.d.morale=Math.max(20,c.d.morale-4);return `심판: 경주 중 일어난 일로 판단합니다. 항의 기각.`}}]},
+  {id:'tyre',cond:c=>c.wear>35&&c.tyre!=='W',text:c=>`${c.d.code}: 타이어에서 진동이 느껴집니다.`,opts:[
+    {n:'다음 랩 BOX',d:'안전하지만 피트 시간을 씀',f:(c,R)=>{if(!c.pitReq)c.pitReq=pickDry(c,R);return `${c.d.code}: 다음 랩에 들어옵니다. ${TYRES[c.pitReq].n} 준비.`}},
+    {n:'버티기',d:'30% 확률로 마모 +30%',f:c=>{if(Math.random()<.3){c.wear=Math.min(100,c.wear+30);return `${c.d.code}: 진동이 심해졌습니다! 타이어가 급격히 닳았습니다.`}return `${c.d.code}: 진동이 가라앉았습니다.`}}]},
+  {id:'engine',cond:()=>true,text:c=>`${c.d.code}: 엔진 온도가 높습니다.`,opts:[
+    {n:'출력 낮추기',d:'3랩 동안 조금 느려짐',f:(c,R)=>{eff(c,R,.3,3);return `${c.d.code}: 엔진을 식히며 달립니다.`}},
+    {n:'그대로 달리기',d:'8% 확률로 리타이어',f:(c,R)=>{if(Math.random()<.08){c.incident={at:R.t+rand(3,10),type:'mech'};return `${c.d.code}: 엔진에서 연기가 납니다…`}return `${c.d.code}: 온도가 내려갑니다. 문제없습니다.`}}]}
+];
+function fireDecision(R){
+  const o=order(R),cars=R.mine.filter(c=>!c.dnf&&!c.done&&!c.pit&&!c.incident);if(!cars.length)return false;
+  const c=cars[irand(0,cars.length-1)],i=o.indexOf(c);c._b=R.track.base;
+  const pool=DECS.filter(d=>d.cond(c,o,i));const dec=pool[irand(0,pool.length-1)];
+  if(R.autoPilot){radio(R,'엔지니어: '+dec.opts[0].f(c,R,o,i));return true}
+  R.decision={dec,c,o,i,until:performance.now()+9000,id:++R.decN};
+  radio(R,dec.text(c,o,i),true);R.slowUntil=R.decision.until;return true;
+}
+function resolveDecision(R,k){const q=R.decision;if(!q)return;R.decision=null;R.slowUntil=0;const a=q.dec.opts[k];radio(R,a.f(q.c,R,q.o,q.i))}
+/* ---------- 경기별 미션 ---------- */
+function makeMissions(T,entries,rp){
+  const mine=entries.map((e,i)=>({e,i})).filter(x=>x.e.mine),best=Math.min(...mine.map(x=>x.i))+1,myP=mine[0].e.perf;
+  const rivals=G.ai.map(t=>({t,p:perfOf(t,T)})).sort((a,b)=>a.p-b.p),rv=(rivals.find(x=>x.p>myP)||rivals[rivals.length-1]).t;
+  const list=[
+    {id:'rival',team:rv.id,n:`${rv.n}보다 앞서기`,d:'우리 팀 최고 순위가 상대 팀 최고 순위보다 높게',rew:11},
+    {id:'climb',n:'출발보다 3계단 오르기',d:'두 대 중 한 대라도 완주 순위로',rew:8},
+    {id:'bothfin',n:'두 대 모두 완주',d:'리타이어 없이 끝내기',rew:5},
+    {id:'onestop',n:'피트 1회로 완주',d:'두 대 모두 피트 1회 이하',rew:8},
+    {id:'passes',n:'추월 6회',d:'두 대 합쳐서',rew:9},
+    {id:'fast',n:'전체 최고 랩',d:'우리 차가 기록',rew:14}
+  ];
+  if(best>6)list.push({id:'points',n:'포인트 따기',d:'10위 안에 들기',rew:12});
+  if(rp>=.3)list.push({id:'wetfin',n:'빗속 경기 완주',d:'비가 내리고 두 대 모두 완주',rew:10});
+  for(let i=list.length-1;i>0;i--){const j=irand(0,i);[list[i],list[j]]=[list[j],list[i]]}
+  return list.slice(0,3);
+}
+function evalMission(m,R,cl){
+  const mine=cl.filter(c=>c.mine),fin=mine.filter(c=>!c.dnf),pos=c=>cl.indexOf(c)+1;
+  if(m.id==='bothfin')return fin.length===2;
+  if(m.id==='onestop')return fin.length===2&&fin.every(c=>c.pits<=1);
+  if(m.id==='passes')return (R.myPass||0)>=6;
+  if(m.id==='fast')return !!(R.fast&&R.cars[R.fast.id].mine);
+  if(m.id==='points')return fin.some(c=>pos(c)<=10);
+  if(m.id==='climb')return fin.some(c=>pos(c)<=c.grid-3);
+  if(m.id==='wetfin')return !!R.rainEver&&fin.length===2;
+  if(m.id==='rival'){const a=fin.length?Math.min(...fin.map(pos)):99,b=cl.filter(c=>!c.mine&&!c.dnf&&c.team.id===m.team).map(pos);return a<(b.length?Math.min(...b):99)}
+  return false;
+}
 
 /* ---------- 메뉴 배경음악: 직접 합성한 잔잔한 반복곡 ---------- */
 const MUS={on:(()=>{try{return localStorage.getItem('pitwall-music')!=='0'}catch(e){return true}})(),bus:null,timer:0,next:0,bar:0,playing:false,
@@ -1234,7 +1322,7 @@ function createScene(R,glCanvas,hudCanvas){
     hx.font='800 13px "Saira Condensed",sans-serif';hx.textBaseline='middle';
     const boxes=[];
     [...tags].sort((a,b)=>(a.mine?1:0)-(b.mine?1:0)).forEach(c=>{const VV=vis[c.id];v3.set(VV.x,3,VV.z).project(camera);if(v3.z>1||Math.abs(v3.x)>1.05||Math.abs(v3.y)>1.05)return;
-      const x=(v3.x+1)/2*w,y=(1-v3.y)/2*h,p=R._pos?R._pos[c.id]:'',tx=`${p?'P'+p+' ':''}${c.d.code}`,tw=hx.measureText(tx).width+12,col2=c.mine?G.team.c1:'#10141b';
+      const x=(v3.x+1)/2*w,y=(1-v3.y)/2*h,p=R._pos?R._pos[c.id]:'',tx=`${p?'P'+p+' ':''}${c.d.code}${c.boostUntil>R.t?' ▶▶':''}`,tw=hx.measureText(tx).width+12,col2=c.mine?G.team.c1:'#10141b';
       const lx=clamp(x-tw/2,2,w-tw-2);let ly=clamp(y-24,2,h-20);
       for(let t=0;t<4;t++){const hit=boxes.find(q=>lx<q[0]+q[2]&&lx+tw>q[0]&&Math.abs(ly-q[1])<18);if(!hit)break;ly=Math.max(2,hit[1]-19)}boxes.push([lx,ly,tw]);
       hx.strokeStyle='rgba(8,11,17,.7)';hx.lineWidth=1;hx.beginPath();hx.moveTo(x,ly+17);hx.lineTo(x,y-1);hx.stroke();
@@ -1817,10 +1905,13 @@ function renderPre(){
     <p class="note">마른 노면에서는 두 종류 이상의 타이어를 써야 합니다. 어기면 20초 페널티를 받으니 최소 한 번은 들어와야 합니다.</p>
   </section>
   <section class="sec"><h2>예선 결과</h2><div class="grid-list">${P.grid.map((e,i)=>`<div class="gr ${e.mine?'me':''}"><span class="p">${i+1}</span><i class="tick" style="background:${e.mine?G.team.c1:e.team.c}"></i>${e.d.code}</div>`).join('')}</div></section></div>
+  <section class="sec"><h2>스폰서 미션</h2><p class="note">하나를 고르면 성공할 때 추가 상금을 받습니다. 고르지 않아도 출발할 수 있어요.</p>
+    <div class="mis-grid">${P.missions.map((m,i)=>`<button class="mis" data-mis="${i}" aria-pressed="${P.mission===i}"><strong>${esc(m.n)}</strong><span>${esc(m.d)}</span><b>+${m.rew}억</b></button>`).join('')}</div></section>
   <div class="foot"><button class="btn" id="back">본부로</button><div class="foot-r"><button class="btn" id="preAuto" aria-pressed="${!!G.autoPilot}">자동 지휘 ${G.autoPilot?'켬':'끔'}</button><button class="btn" id="preSkip">결과만 보기</button><button class="btn pri" id="goRace">그리드로 출발</button></div></div>
   </div></div>`;
   $('#app').onclick=e=>{const b=e.target.closest('button');if(!b)return;
-    if(b.dataset.ty){P.tyres[+b.dataset.drv]=b.dataset.ty;const y=$('.scroll').scrollTop;renderPre();$('.scroll').scrollTop=y}
+    if(b.dataset.mis!=null){const k=+b.dataset.mis;P.mission=P.mission===k?null:k;const y=$('.scroll').scrollTop;renderPre();$('.scroll').scrollTop=y}
+    else if(b.dataset.ty){P.tyres[+b.dataset.drv]=b.dataset.ty;const y=$('.scroll').scrollTop;renderPre();$('.scroll').scrollTop=y}
     else if(b.id==='back')go(renderHub);
     else if(b.id==='goRace')go(startRace);
     else if(b.id==='preAuto'){G.autoPilot=!G.autoPilot;save();const y=$('.scroll').scrollTop;renderPre();$('.scroll').scrollTop=y}
@@ -1832,7 +1923,7 @@ function renderPre(){
 let UI=null,S3D=null;
 function startRace(){
   R=makeRace(P,false);
-  R.gapMode='int';R.speedKey=1;R.paused=false;R.lightsDone=false;R.autoPilot=!!G.autoPilot;
+  R.gapMode='int';R.speedKey=1;R.paused=false;R.lightsDone=false;R.autoPilot=!!G.autoPilot;if(R.autoPilot&&!R.mission&&P.missions)R.mission=P.missions[0];
   $('#app').onclick=null;
   const use3D=webglOK();
   $('#app').innerHTML=`<div class="race" id="raceBox">
@@ -1843,7 +1934,7 @@ function startRace(){
    <div class="mapbox ${use3D?'':'flat'}" id="mapbox">
      ${use3D?'<canvas id="gl"></canvas><canvas id="hud" aria-label="3D 경기 화면. 끌어서 돌리고 휠이나 두 손가락으로 확대합니다."></canvas>':''}
      <div class="mini" id="mini"><canvas id="cv" aria-label="${esc(R.track.name)} 지도와 차량 위치"></canvas></div>
-     <div class="ptbar" id="ptbar"><div class="ptrow"><span>포인트 가능성</span><b id="ptv">0%</b></div><div class="ptm"><i id="pti"></i></div></div>
+     <div class="ptbar" id="ptbar"><div class="ptrow"><span>포인트 가능성</span><b id="ptv">0%</b></div><div class="ptm"><i id="pti"></i></div><div class="pt-mis" id="ptMis" hidden></div></div>
      <div class="callout" id="callout" hidden></div>
      <div class="fcard" id="fcard"></div>
      <div class="cams">
@@ -1853,7 +1944,7 @@ function startRace(){
      ${use3D&&!RM?`<div class="rcard" id="rcard"><span>라운드 ${G.round+1} · ${R.laps}랩 · ${esc(R.track.kind)}</span><strong>${esc(R.track.name)}</strong></div>`:''}
      <div class="lights" id="lights" hidden><div>${'<i></i>'.repeat(5)}</div></div>
    </div>
-   <div class="radio" id="radio" aria-live="polite"><span class="tag">무전</span><p id="rtext"></p><i class="cd" id="rcd"></i></div>
+   <div class="radio" id="radio" aria-live="polite"><span class="tag">무전</span><p id="rtext"></p><div class="dec" id="dec" hidden></div><i class="cd" id="rcd"></i></div>
    <div class="ctrl" id="ctrl">${R.mine.map((c,i)=>dpHTML(c,i)).join('')}<div class="ctrlbar"><button class="order" id="order" disabled></button><button class="cbtn" id="autoBtn"></button><button class="cbtn" id="skipBtn"></button></div></div>
   </div>`;
   const cv=$('#cv');UI={cv,ctx:cv.getContext('2d'),domAt:0,miniAt:0,touchedAt:0,picker:[false,false],lastPos:{},scWas:false,conOpen:false};
@@ -1875,7 +1966,7 @@ function dpHTML(c,i){
   return `<div class="dp" data-i="${i}"><div class="dp-h"><i class="tick" style="background:var(--team)"></i><span>${c.d.code}</span><span class="pos"></span><span class="gap"></span></div>
     <div class="dp-t"><span class="ty"></span><div class="bar"><i></i></div><span class="pct"></span></div>
     <div class="seg" role="group" aria-label="${c.d.code} 주행 모드">${['manage','normal','attack'].map(m=>`<button data-m="${m}">${MODE[m].n}</button>`).join('')}</div>
-    <button class="box">BOX</button>
+    <div class="dp-act"><button class="box">BOX</button><button class="boost" data-boost="1"><i></i><span></span></button></div>
     <div class="tchips" hidden>${['S','M','H','W'].map(t=>`<button data-t="${t}" aria-label="${TYRES[t].n}"><span class="ty ty-${t}">${t}</span></button>`).join('')}</div></div>`;
 }
 function setFs(on){
@@ -1892,13 +1983,15 @@ function raceClick(e){
   if(b.id==='conBtn'){UI.conOpen=!UI.conOpen;UI.conManual=true;updateDOM();return}
   if(b.id==='sndBtn'){SND.toggle();updateDOM();return}
   if(b.id==='gapBtn'){R.gapMode=R.gapMode==='int'?'lead':'int';updateDOM();return}
+  if(b.dataset.dec!=null){resolveDecision(R,+b.dataset.dec);updateDOM();return}
   if(b.id==='order'){teamOrder();return}
   if(b.id==='finBtn'){go(endRace);return}
   if(b.id==='autoBtn'){R.autoPilot=!R.autoPilot;G.autoPilot=R.autoPilot;save();UI.picker=[false,false];R.slowUntil=0;radio(R,R.autoPilot?'자동 지휘 시작. 엔지니어가 타이어와 피트인을 맡습니다.':'직접 지휘로 돌아왔습니다.');updateDOM();return}
   if(b.id==='skipBtn'){if(!UI.skipArm){UI.skipArm=performance.now();updateDOM();return}UI.skipArm=0;R.autoPilot=true;go(endRace);return}
   const dp=b.closest('.dp');if(!dp)return;
   const i=+dp.dataset.i,c=R.mine[i];if(c.dnf||c.done||R.autoPilot)return;
-  if(b.dataset.m){c.mode=b.dataset.m}
+  if(b.dataset.boost){if(useBoost(c,R)){SND.whoosh();radio(R,`${c.d.code}: 부스트! 배터리 ${Math.round(c.batt)}% 남음.`)}}
+  else if(b.dataset.m){c.mode=b.dataset.m}
   else if(b.classList.contains('box')){
     if(c.pitReq){c.pitReq=null;UI.picker[i]=false}
     else if(!c.pit)UI.picker[i]=true;
@@ -2038,7 +2131,7 @@ function updateDOM(now){
   $('#conBtn').hidden=!fs;
   // 전체 화면: 지시 패널은 접어 두고 긴급 무전이면 펼침
   const pickAny=UI.picker[0]||UI.picker[1];
-  box.classList.toggle('con-open',fs&&(UI.conOpen||slow||pickAny));
+  box.classList.toggle('con-open',fs&&(UI.conOpen||(slow&&!R.decision)||pickAny));
   $('#conBtn').setAttribute('aria-pressed',box.classList.contains('con-open'));
   // 장면 알림
   if(R.lightsDone){
@@ -2054,10 +2147,16 @@ function updateDOM(now){
     if(R.chequered&&!UI.flagged){UI.flagged=true;callout('체커기','end');if(S3D)S3D.cheer(1);SND.cheer(1);
       if(!RM){const mb=$('#mapbox'),q=document.createElement('div');q.className='chq';q.style.setProperty('--h',mb.clientHeight+'px');mb.appendChild(q);setTimeout(()=>q.remove(),1900)}}
   }
+  // 돌발 무전
+  if(R.decision&&!R.paused&&now>R.decision.until)resolveDecision(R,0);
+  const dq=R.decision,de=$('#dec');
+  if(dq&&UI.decId!==dq.id){UI.decId=dq.id;de.innerHTML=dq.dec.opts.map((a,k)=>`<button data-dec="${k}"><strong>${esc(a.n)}</strong><span>${esc(a.d)}</span></button>`).join('')}
+  de.hidden=!dq;if(!dq)UI.decId=0;
+  const pm=$('#ptMis');if(R.mission){pm.hidden=false;pm.textContent='미션: '+R.mission.n}
   // 무전
   const m=R.msg,rd=$('#radio');
   if(m){rd.classList.toggle('urgent',m.urgent&&slow);if($('#rtext').textContent!==m.text){$('#rtext').textContent=m.text;rd.classList.remove('rnew');void rd.offsetWidth;rd.classList.add('rnew')}}
-  $('#rcd').style.width=slow?clamp((R.slowUntil-now)/8000*100,0,100)+'%':'0';
+  $('#rcd').style.width=slow?clamp((R.slowUntil-now)/(R.decision?9000:8000)*100,0,100)+'%':'0';
   $('#rcd').style.display=slow?'block':'none';
   if(R.finished&&!$('#finBtn')){const b=document.createElement('button');b.id='finBtn';b.className='btn pri finbtn';b.textContent='결과 보기';rd.appendChild(b);SND.stop();box.classList.remove('con-open')}
   // 콘솔
@@ -2070,7 +2169,11 @@ function updateDOM(now){
     $('.pct',dp).textContent=Math.round(left)+'%';
     $$('.seg button',dp).forEach(b=>{b.setAttribute('aria-pressed',c.mode===b.dataset.m);b.disabled=c.dnf||c.done||R.autoPilot});
     const bx=$('.box',dp),ch=$('.tchips',dp),pick=UI.picker[i]&&!c.pitReq&&!c.pit&&!c.dnf&&!c.done;
-    bx.hidden=pick;ch.hidden=!pick;
+    bx.closest('.dp-act').hidden=pick;ch.hidden=!pick;
+    const bo=$('.boost',dp),bon=c.boostUntil>R.t,prevC=o[o.indexOf(c)-1],near=prevC&&!prevC.pit&&!prevC.dnf&&(prevC.dist-c.dist)*R.track.base<1;
+    bo.disabled=c.dnf||c.done||!!c.pit||!!R.sc||R.autoPilot||bon||c.batt<BOOST_COST;
+    $('i',bo).style.width=c.batt+'%';$('span',bo).textContent=bon?'부스트 중':`부스트 ${Math.round(c.batt)}%`;
+    bo.classList.toggle('on',bon);bo.classList.toggle('near',!bo.disabled&&!!near);
     bx.disabled=c.dnf||c.done||!!c.pit||R.autoPilot;
     bx.classList.toggle('armed',!!c.pitReq);
     bx.classList.toggle('pulse',!c.pitReq&&!c.pit&&!c.dnf&&!c.done&&slow&&(R.sc||R.wetCalled&&c.tyre!=='W'||R.dryCalled&&c.tyre==='W'));
@@ -2084,6 +2187,7 @@ function updateDOM(now){
   const sb=$('#skipBtn');sb.textContent=UI.skipArm?'한 번 더 누르면 종료':'결과 바로 보기';sb.classList.toggle('arm',!!UI.skipArm);sb.disabled=R.finished;
 }
 function endRace(){
+  if(R&&!R.mission&&R.autoPilot&&P&&P.missions)R.mission=P.missions[0];
   let g=0;while(R&&!R.finished&&g<80000){step(R,.2);g++}
   finishRace();if(lastResult.ptsGot>0||lastResult.miles.length)setTimeout(confetti,500);
 }
@@ -2103,6 +2207,7 @@ function finishRace(){
       d.morale=clamp(c.d.morale+(pts?5:0)+(c.dnf?-3:1)+G.fac.sim*1.5,20,100);}
   });
   const miles=[];MILES.forEach(m=>{if(!G.miles[m.id]&&m.test(bestPos)){G.miles[m.id]=true;earned+=m.bonus;miles.push(m)}});
+  let msn=null;if(R.mission){const ok=evalMission(R.mission,R,cl);msn={n:R.mission.n,rew:R.mission.rew,ok};if(ok){earned+=R.mission.rew;G.career.missions=(G.career.missions||0)+1}}
   G.budget+=earned;
   G.career.races++;G.results.push({track:R.track.name,best:bestPos,pts:ptsGot});
   G.round++;
@@ -2110,9 +2215,10 @@ function finishRace(){
   G.ai.forEach((t,i)=>{for(let k=0;k<2;k++){const key=['engine','aero','chassis','dur'][irand(0,3)];t[key]=Math.min(97,t[key]+rand(.1,.45)+i*.03)}});
   const news=[];
   G.projects=G.projects.filter(p=>{if(p.due<=G.round){const m=projMeta[p.kind],ok=p.ok!=null?p.ok:p.gain>=m.gain,from=Math.round(G.car[p.part]);G.car[p.part]=Math.min(99,G.car[p.part]+p.gain);G.pop=G.pop||[];G.pop.push({part:p.part,kind:p.kind,ok,gain:p.gain,from,to:Math.round(G.car[p.part])});news.push(ok?`✓ ${PARTS[p.part].n} ${m.n} 성공: +${p.gain}`:`✕ ${PARTS[p.part].n} ${m.n} 실패: +${p.gain}만 남았습니다`);return false}return true});
+  if(msn)news.unshift(msn.ok?`✓ 미션 성공: ${msn.n} +${msn.rew}억`:`✕ 미션 실패: ${msn.n}`);
   miles.forEach(m=>{const pt=PATTERNS.find(p=>p.unlock===m.id);if(pt)news.unshift(`✓ 새 도장 잠금 해제: ${pt.n}`);news.unshift(`✓ ${m.n} 달성! 스폰서 보너스 ${m.bonus}억`)});
   G.news=news;G.dot=G.dot||{};if(news.some(n=>/개발|도장/.test(n)))G.dot.garage=true;
-  lastResult={rows,earned,ptsGot,bestPos,track:R.track,fast:R.fast&&R.cars[R.fast.id],fastT:R.fast&&R.fast.t,miles};
+  lastResult={rows,earned,ptsGot,bestPos,track:R.track,fast:R.fast&&R.cars[R.fast.id],fastT:R.fast&&R.fast.t,miles,msn};
   save();R=null;renderResult();
 }
 
@@ -2138,6 +2244,7 @@ function renderResult(){
   <header class="res-head"><div><span class="lab">라운드 ${G.round} 결과</span><h1>${esc(r.track.name)}</h1></div></header>
   <div class="sumrow">${line.map(x=>`<div><span class="lab">${x.c.d.code}</span><b>${x.c.dnf?'리타이어':'P'+x.pos}</b><span class="note">출발 P${x.c.grid} · 피트 ${x.c.pits}회${x.c.pen?' · 페널티 20초':''}</span></div>`).join('')}
     <div><span class="lab">획득 포인트</span><b data-count="${r.ptsGot}">${r.ptsGot}</b></div><div><span class="lab">상금·스폰서</span><b data-count="${r.earned}" data-suf="억">${r.earned}억</b></div></div>
+  ${r.msn?`<div class="news"><span class="${r.msn.ok?'good':'bad'}">${r.msn.ok?`미션 성공! ${esc(r.msn.n)} · 추가 상금 ${r.msn.rew}억`:`미션 실패: ${esc(r.msn.n)}`}</span></div>`:''}
   ${r.miles.map(m=>`<div class="news"><span class="good">${m.n} 달성! 스폰서 보너스 ${m.bonus}억이 들어왔습니다.</span></div>`).join('')}
   <div class="foot"><span class="note">우승 ${esc(w.d.n)}${r.fast?` · 가장 빠른 랩 ${r.fast.d.code} ${fmtLap(r.fastT)}`:''}</span><button class="btn pri" id="toHub">본부로</button></div>
   <section class="sec"><h2>최종 순위</h2><div class="tblw"><table class="tbl">${r.rows.map(x=>{const c=x.c;const gap=c.dnf?c.dnfWhy:x.pos===1?fmtLap(c.finishT).replace(/^(\d+):/,'$1:'):c.lap<w.lap?`+${w.lap-c.lap}랩`:'+'+(c.finishT+(c.pen||0)-w.finishT-(w.pen||0)).toFixed(1);
