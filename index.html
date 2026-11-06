@@ -311,6 +311,10 @@ table{border-collapse:collapse;width:100%}
 .proj button:hover:not(:disabled),.tp:hover{border-color:#8896aa}
 .meter{background:#10151d}.bar,.ptm{background:#10151d}
 .sec>h2{margin-top:4px}
+.i-acc{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px}
+.acc-who{display:grid;gap:1px;font-size:12px;color:#cdd5e1;min-width:0}.acc-who b{color:#fff;font-size:13px;overflow-wrap:anywhere}.acc-who em{font-style:normal;color:#ffb0b5}
+.acc-btn{min-height:38px;font-size:13px;padding:0 12px;flex:none}
+.sync-opt{display:grid;gap:3px;padding:12px;text-align:left;background:var(--panel2);border:1px solid var(--line);font-size:12px;color:#cdd5e1}.sync-opt strong{font-size:14px;color:#fff}.sync-opt:hover{border-color:var(--team)}
 .off-steps{display:flex;gap:6px;flex-wrap:wrap}.off-steps span{font-size:12px;padding:4px 10px;background:var(--panel);border:1px solid var(--line);color:var(--mute)}
 .off-steps span.on{background:var(--team);color:var(--team-ink);border-color:var(--team);font-weight:700}
 .stat b em{font-style:normal;font-size:11px;margin-left:3px;font-family:var(--body);font-weight:700}.stat b em.up{color:var(--green)}.stat b em.dn{color:#ff8a92}
@@ -520,8 +524,8 @@ function carSVG(c1,c2,num){const t=ink(c1);
 let G=null,C=null,P=null,R=null,LOOP=null,lastResult=null;
 const KEY='pitwall-gp-v1';
 const load=()=>{try{const s=localStorage.getItem(KEY);return s?JSON.parse(s):null}catch(e){return null}};
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(G))}catch(e){}};
-const wipe=()=>{try{localStorage.removeItem(KEY)}catch(e){}};
+const save=()=>{if(INTRO||!G)return;G.savedAt=Date.now();try{localStorage.setItem(KEY,JSON.stringify(G))}catch(e){}cloudPush()};
+const wipe=()=>{try{localStorage.removeItem(KEY)}catch(e){}setSynced(0);clearTimeout(CLOUD.timer);if(CLOUD.ref)CLOUD.ref.remove().catch(()=>{})};
 function setTeamVars(c1,c2){const s=document.documentElement.style;s.setProperty('--team',c1);s.setProperty('--team-ink',ink(c1));s.setProperty('--team2',c2)}
 
 function newGame(team,picks){
@@ -1238,6 +1242,72 @@ function createScene(R,glCanvas,hudCanvas){
   return {render,resize,setLights,setMode,dispose,S,cheer(l){if(l>=.8)S.shk=Math.max(S.shk,l)},focusCode(){return focusV().c}};
 }
 
+/* ---------- 계정과 기기 간 저장 ---------- */
+const CLOUD_CFG={apiKey:"AIzaSyA2tiPv0gCWpFVNov9lvrOk0BkPEapOnHA",authDomain:"quidditch-a8936.firebaseapp.com",databaseURL:"https://quidditch-a8936-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"quidditch-a8936",appId:"1:535725884129:web:42c812bd4df507eee72da0"};
+const CLOUD={host:/(^|\.)github\.io$/.test(location.hostname),ok:false,user:null,ref:null,auth:null,msg:'',state:'',timer:0,writing:false};
+const syncedAt=()=>{try{return +localStorage.getItem('pitwall-synced')||0}catch(e){return 0}};
+const setSynced=v=>{try{localStorage.setItem('pitwall-synced',String(v||0))}catch(e){}};
+function loadScript(u){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=u;s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
+function initCloud(){
+  if(!CLOUD.host)return;
+  const base='https://www.gstatic.com/firebasejs/10.14.1/';
+  loadScript(base+'firebase-app-compat.js').then(()=>loadScript(base+'firebase-auth-compat.js')).then(()=>loadScript(base+'firebase-database-compat.js')).then(()=>{
+    firebase.initializeApp(CLOUD_CFG);CLOUD.auth=firebase.auth();CLOUD.ok=true;renderAccount();
+    CLOUD.auth.getRedirectResult&&CLOUD.auth.getRedirectResult().catch(e=>{CLOUD.msg=cloudErr(e);renderAccount()});
+    CLOUD.auth.onAuthStateChanged(u=>{CLOUD.user=u||null;CLOUD.ref=u?firebase.database().ref('pitwall/'+u.uid):null;CLOUD.state='';renderAccount();if(u)syncNow()});
+  }).catch(()=>{CLOUD.msg='로그인 기능을 불러오지 못했습니다. 이 기기에는 계속 저장됩니다.';renderAccount()});
+}
+function cloudErr(e){const c=e&&e.code||'';if(c==='auth/popup-closed-by-user'||c==='auth/cancelled-popup-request')return '';if(c==='auth/unauthorized-domain')return '이 주소가 Firebase 승인 도메인에 없습니다.';if(c==='auth/network-request-failed')return '인터넷 연결을 확인해 주세요.';return '로그인하지 못했습니다. 다시 시도해 주세요.'}
+function cloudLogin(){
+  CLOUD.msg='';const pv=new firebase.auth.GoogleAuthProvider();
+  CLOUD.auth.signInWithPopup(pv).catch(e=>{const c=e&&e.code||'';if(c==='auth/popup-blocked'||c==='auth/operation-not-supported-in-this-environment'){CLOUD.auth.signInWithRedirect(pv).catch(x=>{CLOUD.msg=cloudErr(x);renderAccount()});return}CLOUD.msg=cloudErr(e);renderAccount()});
+}
+function pushData(d){
+  if(!CLOUD.ref||!d)return Promise.resolve();
+  const at=d.savedAt||Date.now();CLOUD.writing=true;CLOUD.state='저장 중';renderAccount();
+  return CLOUD.ref.set({savedAt:at,json:JSON.stringify(d)}).then(()=>{setSynced(at);CLOUD.writing=false;CLOUD.state='저장됨';CLOUD.dirty=false;renderAccount()}).catch(()=>{CLOUD.writing=false;CLOUD.dirty=true;CLOUD.state='연결되면 저장합니다';renderAccount()});
+}
+function cloudPush(){if(!CLOUD.ref)return;clearTimeout(CLOUD.timer);CLOUD.state='저장 중';CLOUD.timer=setTimeout(()=>pushData(load()),700)}
+const cloudIdle=()=>!!($('#introBox')||$('.hub')||$('.off-steps')||$('#tname'));
+function saveLine(d){if(!d)return '기록 없음';let at='';try{at=d.savedAt?new Date(d.savedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}):''}catch(e){}const rnd=d.round>=12?'시즌 종료':`라운드 ${(d.round||0)+1}`;return `${esc(d.team?d.team.name:'')} · 시즌 ${d.season||1} · ${rnd}${at?' · '+at:''}`}
+function adoptSave(d,note){
+  const n=ensureG(d);try{localStorage.setItem(KEY,JSON.stringify(n))}catch(e){}setSynced(n.savedAt||0);CLOUD.state='저장됨';
+  if(INTRO){INTRO.saved=n;closeIntro();G=n;renderIntro();return}
+  G=n;if(note)G.news=[note,...(G.news||[])].slice(0,6);
+  $('#resPop')&&$('#resPop').remove();renderHub();
+}
+function syncNow(){
+  if(!CLOUD.ref||!cloudIdle())return;
+  CLOUD.ref.once('value').then(sn=>{
+    if(!cloudIdle())return;
+    const v=sn.val();let rm=null;if(v&&v.json){try{rm=JSON.parse(v.json);rm.savedAt=v.savedAt||rm.savedAt||0}catch(e){}}
+    const lo=load(),ra=rm?rm.savedAt:0,la=lo?(lo.savedAt||0):0,sy=syncedAt();
+    if(!rm&&!lo){CLOUD.state='저장됨';renderAccount();return}
+    if(!rm){if(!lo.savedAt){lo.savedAt=Date.now();try{localStorage.setItem(KEY,JSON.stringify(lo))}catch(e){}}pushData(lo);return}
+    if(!lo){adoptSave(rm);return}
+    if(ra===la){setSynced(ra);CLOUD.state='저장됨';renderAccount();return}
+    if(la===sy&&la<ra){adoptSave(rm,'다른 기기의 최신 기록을 불러왔습니다.');return}
+    if(ra===sy&&la>ra){pushData(lo);return}
+    showConflict(lo,rm);
+  }).catch(()=>{CLOUD.state='서버 저장을 확인하지 못했습니다';renderAccount()});
+}
+function showConflict(lo,rm){
+  if($('#syncPop'))return;
+  const w=document.createElement('div');w.className='pop-wrap';w.id='syncPop';
+  w.innerHTML=`<div class="pop-card" role="dialog" aria-modal="true"><span class="lab">기록 선택</span><h2>어느 기록으로 이어 할까요?</h2><p class="note">이 기기와 내 계정의 기록이 다릅니다. 고르지 않은 쪽은 지워집니다.</p>
+    <div class="pop-list"><button class="sync-opt" id="useLocal"><strong>이 기기의 기록</strong><span>${saveLine(lo)}</span></button><button class="sync-opt" id="useRemote"><strong>내 계정의 기록</strong><span>${saveLine(rm)}</span></button></div></div>`;
+  document.body.appendChild(w);
+  $('#useLocal',w).onclick=()=>{w.remove();lo.savedAt=Date.now();try{localStorage.setItem(KEY,JSON.stringify(lo))}catch(e){}pushData(lo)};
+  $('#useRemote',w).onclick=()=>{w.remove();adoptSave(rm)};
+}
+function renderAccount(){
+  const html=!CLOUD.host?'':CLOUD.user?`<span class="acc-who"><b>${esc(CLOUD.user.email||CLOUD.user.displayName||'내 계정')}</b>${esc(CLOUD.state||'로그인됨')}</span><button class="btn acc-btn" data-cloud="out">로그아웃</button>`:CLOUD.ok?`<button class="btn acc-btn" data-cloud="in">구글로 로그인</button><span class="acc-who">다른 기기에서도 이어 할 수 있습니다${CLOUD.msg?`<em>${esc(CLOUD.msg)}</em>`:''}</span>`:CLOUD.msg?`<span class="acc-who"><em>${esc(CLOUD.msg)}</em></span>`:'';
+  $$('[data-acc]').forEach(el=>{el.innerHTML=html;el.hidden=!html});
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-cloud]');if(!b)return;if(b.dataset.cloud==='in')cloudLogin();else if(CLOUD.auth)CLOUD.auth.signOut()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&CLOUD.ref&&!CLOUD.writing&&!CLOUD.dirty)syncNow()});
+window.addEventListener('online',()=>{if(CLOUD.ref&&(CLOUD.dirty||(load()||{}).savedAt>syncedAt()))pushData(load())});
+
 /* ---------- 화면 전환 ---------- */
 let RM=(()=>{try{return localStorage.getItem('pitwall-motion')==='0'}catch(e){return false}})();
 document.documentElement.classList.toggle('no-motion',RM);
@@ -1358,9 +1428,11 @@ function drawHubTab(){
     startPreview();drawGarageTab();
   }else if(HT==='menu'){
     body.innerHTML=`<div class="wrap tabfade"><section class="sec"><h2>메뉴</h2>
+      ${CLOUD.host?'<div class="menu-row" data-acc hidden></div>':''}
       <div class="menu-row"><span>화면 전환과 움직임 효과</span><button class="btn" id="menuFx" aria-pressed="${!RM}">효과 ${RM?'끔':'켬'}</button></div>
       <div class="menu-row"><span>효과음과 엔진음</span><button class="btn" id="menuSnd" aria-pressed="${SND.on}">소리 ${SND.on?'켬':'끔'}</button></div>
       <div class="menu-row"><span>지금까지의 시즌을 지우고 새 구단으로 시작합니다.</span><div class="confirm" id="resetBox"><button class="btn" id="askReset">처음부터 다시 시작</button></div></div></section></div>`;
+  renderAccount();
   }else if(HT==='driver'){
     const list=driverStandings(),dc=(l,v)=>`<span class="stat"><span>${l}</span><b>${v}</b></span>`;
     body.innerHTML=`<div class="wrap tabfade">
@@ -2047,8 +2119,9 @@ function renderIntro(){
   $('#app').onclick=null;
   $('#app').innerHTML=`<div class="intro" id="introBox"><canvas id="iGl" aria-hidden="true"></canvas><canvas id="iHud" aria-hidden="true"></canvas><div class="i-shade"></div>
     <div class="i-panel"><span class="i-en">PIT WALL GRAND PRIX</span><h1>피트월<br>그랑프리</h1><div class="i-chk" aria-hidden="true"></div>
-      <div class="i-go"><button class="btn pri" id="introGo">${saved?'이어서 하기':'시작하기'}</button>${saved?`<span class="i-save"><b>${esc(saved.team.name)}</b>${done?`시즌 ${saved.season} 종료`:`시즌 ${saved.season} · 라운드 ${saved.round+1}/${TRACKS.length}`}</span>`:''}</div></div></div>`;
+      <div class="i-go"><button class="btn pri" id="introGo">${saved?'이어서 하기':'시작하기'}</button>${saved?`<span class="i-save"><b>${esc(saved.team.name)}</b>${done?`시즌 ${saved.season} 종료`:`시즌 ${saved.season} · 라운드 ${saved.round+1}/${TRACKS.length}`}</span>`:''}</div><div class="i-acc" data-acc hidden></div></div></div>`;
   INTRO={saved,stop:false};
+  renderAccount();
   const me=INTRO;
   $('#introGo').onclick=()=>go(()=>{closeIntro();G?renderHub():startCreate()});
   if(!webglOK())return;
@@ -2077,6 +2150,7 @@ function renderIntro(){
 function start(data){
   G=ensureG((data&&data.G)||load());
   if(data&&data.G)renderHub();else renderIntro();
+  initCloud();
 }
 window.claude?.hot?.snapshot?.(()=>({G}));
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
