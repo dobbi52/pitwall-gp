@@ -793,6 +793,47 @@ const SND={ctx:null,on:(()=>{try{return localStorage.getItem('pitwall-snd')!=='0
   stop(){this.racing=false;if(this.master){this.eg.gain.setTargetAtTime(0,this.ctx.currentTime,.1);this.cg.gain.setTargetAtTime(0,this.ctx.currentTime,.3)}}
 };
 
+/* ---------- 메뉴 배경음악: 직접 합성한 잔잔한 반복곡 ---------- */
+const MUS={on:(()=>{try{return localStorage.getItem('pitwall-music')!=='0'}catch(e){return true}})(),bus:null,timer:0,next:0,bar:0,playing:false,
+  CH:[[220,261.63,329.63],[174.61,220,261.63],[130.81,196,261.63],[196,246.94,293.66]],BASS:[55,43.65,65.41,49],
+  SCALE:[440,523.25,587.33,659.25,783.99,880],BAR:3.2,
+  ensure(){
+    if(this.bus||!SND.master)return !!this.bus;
+    const x=SND.ctx;this.bus=x.createGain();this.bus.gain.value=0;
+    const f=x.createBiquadFilter();f.type='lowpass';f.frequency.value=1500;
+    const d=x.createDelay(1);d.delayTime.value=.4;const fb=x.createGain();fb.gain.value=.28;
+    this.bus.connect(f);f.connect(SND.master);f.connect(d);d.connect(fb);fb.connect(d);d.connect(SND.master);
+    return true;
+  },
+  tone(fr,t,len,vol,type){const x=SND.ctx,o=x.createOscillator(),g=x.createGain();o.type=type;o.frequency.value=fr;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+(type==='triangle'?.7:.02));g.gain.exponentialRampToValueAtTime(.0001,t+len);o.connect(g);g.connect(this.bus);o.start(t);o.stop(t+len+.05)},
+  sched(){
+    if(!this.playing)return;const x=SND.ctx;
+    while(this.next<x.currentTime+.6){
+      const t=this.next,i=this.bar%4,B=this.BAR;
+      this.CH[i].forEach(fr=>this.tone(fr,t,B+.8,.05,'triangle'));
+      this.tone(this.BASS[i],t,B*.9,.09,'sine');
+      for(let k=0;k<8;k++){if((k*5+this.bar*3)%8<3)this.tone(this.SCALE[(k*2+this.bar)%this.SCALE.length],t+k*B/8,1.1,.035,'sine')}
+      this.next+=B;this.bar++;
+    }
+  },
+  play(){
+    if(!this.on||this.playing||document.hidden||!SND.ctx||!this.ensure())return;
+    const x=SND.ctx;if(x.state==='suspended')x.resume();
+    this.playing=true;this.next=x.currentTime+.2;this.bus.gain.cancelScheduledValues(x.currentTime);this.bus.gain.setTargetAtTime(.55,x.currentTime,1);
+    clearInterval(this.timer);this.timer=setInterval(()=>this.sched(),250);this.sched();
+  },
+  stop(){
+    this.playing=false;clearInterval(this.timer);
+    if(this.bus)this.bus.gain.setTargetAtTime(0,SND.ctx.currentTime,.4);
+  },
+  toggle(){this.on=!this.on;try{localStorage.setItem('pitwall-music',this.on?'1':'0')}catch(e){}if(this.on)musicForScreen();else this.stop()}
+};
+const inRace=()=>!!(R&&!INTRO&&!R.finished);
+function musicForScreen(){if(inRace())MUS.stop();else MUS.play()}
+document.addEventListener('pointerdown',()=>{SND.start();musicForScreen()},{once:true});
+document.addEventListener('keydown',()=>{SND.start();musicForScreen()},{once:true});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)MUS.stop();else musicForScreen()});
+
 /* ---------- 3D 경기장 ---------- */
 const WS=5,TW=11,PITO=20,CX=50*WS,CZ=45*WS;
 const IS_PHONE=/Mobi|Android|iPhone|iPad/.test(navigator.userAgent)||Math.min(innerWidth,innerHeight)<560;
@@ -1323,6 +1364,7 @@ function go(fn){
     const app=$('#app');app.classList.add('enter');
     try{fn()}catch(e){console.error(e)}
     setTimeout(()=>app.classList.remove('enter'),1300);
+    musicForScreen();
     w.classList.add('out');
     setTimeout(()=>{w.remove();TR=false},260);
   },170);
@@ -1431,6 +1473,7 @@ function drawHubTab(){
     body.innerHTML=`<div class="wrap tabfade"><section class="sec"><h2>메뉴</h2>
       ${CLOUD.host?'<div class="menu-row" data-acc hidden></div>':''}
       <div class="menu-row"><span>화면 전환과 움직임 효과</span><button class="btn" id="menuFx" aria-pressed="${!RM}">효과 ${RM?'끔':'켬'}</button></div>
+      <div class="menu-row"><span>메뉴 배경음악</span><button class="btn" id="menuMus" aria-pressed="${MUS.on}">음악 ${MUS.on?'켬':'끔'}</button></div>
       <div class="menu-row"><span>효과음과 관중 소리</span><button class="btn" id="menuSnd" aria-pressed="${SND.on}">소리 ${SND.on?'켬':'끔'}</button></div>
       <div class="menu-row"><span>지금까지의 시즌을 지우고 새 구단으로 시작합니다.</span><div class="confirm" id="resetBox"><button class="btn" id="askReset">처음부터 다시 시작</button></div></div></section></div>`;
   renderAccount();
@@ -1455,6 +1498,7 @@ function hubClick(e){
   if(b.dataset.ht){if(b.dataset.ht===HT)return;HT=b.dataset.ht;if(HT==='garage'&&G.dot&&G.dot.garage){G.dot.garage=false;save();const d=b.querySelector('.dot');if(d)d.remove()}drawHubTab();return}
   if(b.id==='menuBtn'){HT='menu';drawHubTab();return}
   if(b.id==='menuFx'){RM=!RM;document.documentElement.classList.toggle('no-motion',RM);try{localStorage.setItem('pitwall-motion',RM?'0':'1')}catch(x){}b.textContent='효과 '+(RM?'끔':'켬');b.setAttribute('aria-pressed',!RM);return}
+  if(b.id==='menuMus'){SND.start();MUS.toggle();b.textContent='음악 '+(MUS.on?'켬':'끔');b.setAttribute('aria-pressed',MUS.on);return}
   if(b.id==='menuSnd'){SND.toggle();b.textContent='소리 '+(SND.on?'켬':'끔');b.setAttribute('aria-pressed',SND.on);return}
   if(b.id==='goPre'){G.news=[];save();preparePre(curTrack());go(renderPre);return}
   if(b.id==='askReset'){$('#resetBox').innerHTML='<span>지금까지의 시즌이 지워집니다.</span><button class="btn" id="doReset">지우기</button><button class="btn" id="noReset">취소</button>';return}
@@ -1823,7 +1867,7 @@ function startRace(){
   $('#tw').addEventListener('touchstart',()=>UI.touchedAt=performance.now(),{passive:true});
   $('#tw').addEventListener('wheel',()=>UI.touchedAt=performance.now(),{passive:true});
   $('.race').addEventListener('click',raceClick);
-  SND.start();SND.racing=true;if(SND.cg)SND.cg.gain.setTargetAtTime(.012,SND.ctx.currentTime,.4);
+  MUS.stop();SND.start();SND.racing=true;if(SND.cg)SND.cg.gain.setTargetAtTime(.012,SND.ctx.currentTime,.4);
   radio(R,G.round===0?'첫 경기입니다. 타이어 막대가 줄어들면 BOX를 눌러 타이어를 고르세요. 다음 랩에 들어옵니다.':'모두 그리드에 섰습니다. 신호를 기다립니다.');
   updateDOM();drawTrack();runLights();
 }
